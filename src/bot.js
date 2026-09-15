@@ -80,7 +80,6 @@ client.player.shoukaku.on("error", require("./music/error").bind(null, client));
 require("./database/connect")();
 
 client.config = require("./config/bot");
-client.config.discord.prefix = process.env.DEFAULT_PREFIX || ".";
 client.changelogs = require("./config/changelogs");
 client.emotes = require("./config/emojis.json");
 client.webhooks = require("./config/webhooks.json");
@@ -118,7 +117,7 @@ const consoleLogs = makeWebhook("consoleLogs");
 const warnLogs = makeWebhook("warnLogs");
 const safeLog = (hook, payload) => hook?.send(payload).catch(() => {});
 
-const requiredEnvironment = ["DISCORD_TOKEN", "DISCORD_ID"];
+const requiredEnvironment = ["DISCORD_TOKEN", "MONGO_TOKEN", "DISCORD_ID"];
 const missingEnvironment = requiredEnvironment.filter((key) => !process.env[key]);
 if (missingEnvironment.length) {
     console.error(`LightCore cannot start: missing required environment variables: ${missingEnvironment.join(", ")}`);
@@ -132,6 +131,12 @@ fs.readdirSync("./src/handlers").forEach((dir) => {
     fs.readdirSync(fullPath)
         .filter((handler) => handler.endsWith(".js"))
         .forEach((handler) => require(`${handlerPath}/${handler}`)(client));
+});
+
+client.once(Discord.Events.ClientReady, (readyClient) => {
+    console.log(`LightCore is online as ${readyClient.user.tag} in ${readyClient.guilds.cache.size} server(s).`);
+    console.log(`Default prefix: ${client.config.discord.prefix}`);
+    console.log(`Application ID: ${readyClient.user.id}`);
 });
 
 if (!missingEnvironment.length) {
