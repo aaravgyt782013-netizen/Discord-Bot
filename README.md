@@ -1,127 +1,107 @@
+# LightCore
 
-[![Version][version-shield]](version-url)
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-<center><img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Discord-Bot&fontSize=80&fontAlignY=35&animation=twinkling&fontColor=gradient" /></center>
+LightCore is a configurable all-in-one Discord bot built with Discord.js v14. It combines moderation, automation, tickets, leveling, economy, music, games, giveaways, reaction roles, server utilities and more in one project.
 
-<br />
+## ✨ Highlights
 
-[![Run on Repl.it](https://repl.it/badge/github/CorwinDev/Discord-Bot)](https://replit.com/@CorwinDeveloper/Discord-Bot-v14?v=1)
-[![Remix on Glitch](https://cdn.glitch.com/2703baf2-b643-4da7-ab91-7ee2a2d00b5b%2Fremix-button.svg)](https://glitch.com/edit/#!/import/github/CorwinDev/Discord-Bot)
+- Slash commands with Discord's native command picker
+- Prefix commands with configurable server prefix (default: `.`)
+- Prefix support for nested commands such as `.ticket help` and `.setup tickets`
+- Interactive ticket setup wizard
+- Multiple ticket categories with independent settings
+- Ticket category, support role, logs and transcript configuration
+- Ticket panel editor with interactive dropdown publishing
+- Moderation and automod tools
+- Leveling, message rewards and server statistics
+- Economy, games, fun and utility systems
+- Reaction roles, suggestions, giveaways and custom commands
+- MongoDB persistence
+- Graceful error handling and configuration validation
 
-<!-- PROJECT LOGO -->
-<br />
-<p align="center">
-  <a href="https://github.com/corwindev/Discord-Bot">
-    <img src="https://cdn.discordapp.com/attachments/778665159316209748/1055857473749274694/Corwin-1-modified.png" alt="Pbot-plus" width="200" height="200">
-  </a>
+## 🚀 Requirements
 
-  <h3 align="center">Discord-Bot</h3>
+- Node.js 18+ recommended
+- MongoDB connection string
+- Discord bot token
+- Discord application/client ID
+- Additional API keys only for features that require them (for example music/search/AI integrations)
 
-  <p align="center">
-    Discord-bot is an updated version of <a href="https://github.com/DotwoodMedia/Dbot">Dbot</a>, an advanced Discord multipurpose bot containing more than 400 commands.<br> It can do Moderation, Tickets, Radio, Games, Giveaways, Customisation, Economy, Leveling, Invites, Messages, Utilities, Suggestions, Server Stats etc.<br> Unfortunately the owners stopped at the peak and decided to put the source online of which I made an updated version.
-    <br />
-    <br />
-    <a href="https://github.com/corwindev/discord-bot/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/corwindev/discord-bot/issues">Request Feature</a>
-  </p>
-</p>
+## ⚙️ Configuration
 
-<!-- NOTICE -->
+1. Create a Discord application and bot in the Discord Developer Portal.
+2. Copy the required environment variables from `.env.example` into your deployment environment.
+3. Set your bot token and client/application ID.
+4. Set the MongoDB connection string.
+5. Install dependencies with `npm install`.
+6. Start with `npm start`.
 
-### <img src="https://cdn.discordapp.com/emojis/1055803759831294013.png" width="20px" height="20px"> 》Notice 
-> You may not claim this as your own! The original source was created by [Dotwood Media](https://github.com/DotwoodMedia) and [Graphix Development](https://github.com/GraphixDevelopment). The source is modified and updated by me(CorwinDev)
+Never commit your bot token, database credentials, API keys or other secrets to GitHub.
 
-> Discord-Bot is a multipurpose Discord bot base in [Discord.js](https://github.com/Discordjs/discordjs)
-If you like this repository, feel free to leave a star ⭐ to motivate me!
+## 🎫 Ticket setup
 
-<!-- ABOUT THE PROJECT -->
+After inviting LightCore with the permissions required by your server, an administrator can run:
 
-## <img src="https://cdn.discordapp.com/emojis/859424401186095114.png" width="20px" height="20px">》Description 
-[![Readme Card](https://github-readme-stats.vercel.app/api/pin/?username=corwindev&repo=Discord-bot&theme=tokyonight)](https://github.com/corwindev/Discord-bot)
-## <img src="https://cdn.discordapp.com/emojis/852881450667081728.gif" width="20px" height="20px">》Feature
-- [x] Slash Commands 
-- [x] Upto date with Discord.js v14
-- [x] Automod
-- [x] Custom Commands
-- [x] Music Commands
-- [x] Tickets
-- [x] Utility Commands
-- [x] Suggestions 
-- [x] Reaction Roles
-- [x] Family
-- [x] Giveaways 
-- [x] Easy to use
-- [x] Customizable
-- [x] And much more
-- [x] Don't wanna host it yourself? [Use our public bot](https://discord.com/api/oauth2/authorize?client_id=860390761307439114&permissions=8&scope=bot%20applications.commands)
-## <img src="https://cdn.discordapp.com/emojis/1028680849195020308.png" width="25px" height="25px">》Screenshots
-<br />
-<p align="center">
-  <a href="https://github.com/corwindev/discord-bot">
-    <img src="https://cdn.discordapp.com/attachments/778665159316209748/1055832339328024666/207117434-d98356b1-bf19-418e-9e12-0ef83e0d9a21.png">
-  </a>
-</p>
-
-## <img src="https://cdn.discordapp.com/emojis/1009754836314628146.gif" width="25px" height="25px">》Requirements
-- NodeJs v17+
-- Java v13 for lavalink server.
-- Discord Token. Get it from [Discord Developers Portal](https://discord.com/developers/applications)
-- Mongo Database URL. Get it from [MongoDB](https://cloud.mongodb.com/v2/635277bf9f5c7b5620db28a4#clusters)
-- Giphy API Token. Get it from [Giphy Developers Portal](https://developers.giphy.com/)
-- OpenAI API Key `for ai chatbot`. Get it from [OpenAi Developers Portal](https://beta.openai.com/account/api-keys)
-- ClientID `for loading slash commands.` [Discord Developers Portal](https://discord.com/developers/applications)
-- Spotify client ID `for Spotify support` [Click here to get](https://developer.spotify.com/dashboard/login)
-- Spotify client Secret `for Spotify support` [Click here to get](https://developer.spotify.com/dashboard/login)
-
-## <img src="https://cdn.discordapp.com/emojis/814216203466965052.png" width="25px" height="25px">》Installation Guide
-
-### <img src="https://cdn.discordapp.com/emojis/1028680849195020308.png" width="15px" height="15px"> Installing via [NPM](https://www.npmjs.com/)
-Clone the repo by running
-```bash
-git clone https://github.com/Corwindev/Discord-Bot.git
-```
-### After cloning Fill all requirement in `.env` **(rename `.env.example` to `.env`)**, then run
-
-```bash
-npm install
-```
-To start your bot 
-
-```js
-node src/index.js
+```text
+/setup tickets
 ```
 
-## <img src="https://cdn.discordapp.com/emojis/1036083490292244493.png" width="15px" height="15px">》Support Server
-[![DiscordBanner](https://invidget.switchblade.xyz/techpoint-1016942011024158782)](https://discord.gg/techpoint-1016942011024158782)
+or:
 
-[Support Server](https://discord.gg/techpoint-1016942011024158782) - Discord-Bot's Support Server Invite
+```text
+.setup tickets
+```
 
-# <img src="https://cdn.discordapp.com/emojis/1015745034076819516.png" width="25px" height="25px">》Faq
-> How to get access to Developers Commands? You will have to set them up via MongoDB or run the below command.
+The interactive wizard lets you:
+
+1. Add multiple ticket categories.
+2. Give every category its own name, emoji and description.
+3. Select its Discord category.
+4. Select its support role.
+5. Select its logs channel.
+6. Select its transcript channel.
+7. Edit/manage configured categories.
+8. Customize the public ticket panel.
+9. Publish the panel to a selected channel.
+
+Discord limits a normal string-select menu to 25 options, so a single LightCore ticket panel supports up to 25 categories. citehttps://discord.com/developers/docs/components/reference#string-select-select-menu-structure
+
+## ⌨️ Prefix commands
+
+The default prefix is `.`. The prefix can be configured per server through the bot's settings system. Slash commands remain available alongside prefix commands.
+
+Examples:
+
+```text
+.help
+.ticket help
+.tickets create
+.setup tickets
+```
+
+## 🛡️ Permissions
+
+Only trusted administrators should be given setup permissions. Discord also provides server-side command permission controls under Server Settings → Integrations, allowing individual app commands to be restricted to selected roles, members or channels.
+
+## 🔐 Security
+
+LightCore should be deployed with the minimum Discord permissions required for the features you enable. Keep credentials private and review the bot's data access and enabled integrations before public distribution.
+
+## 🧪 Testing
+
+Run the built-in source syntax check before publishing:
 
 ```bash
-npm run add-dev YOUR_Discord_ID
+npm test
 ```
-# Donate
 
- By Donating, You Will Help Me To Maintain This Project 
+A successful test means the JavaScript source parses successfully. Production testing should additionally cover Discord permissions, MongoDB connectivity, music/API integrations, ticket creation/closure, moderation actions and restart recovery in a private test server.
 
-<img src="https://cdn.discordapp.com/emojis/809085860632985630.png" width="15px" height="15px"> 》[Sponsor](https://github.com/sponsors/CorwinDev)
+## 💬 Support
 
-[version-shield]: https://img.shields.io/github/package-json/v/CorwinDev/Discord-Bot?style=for-the-badge
-[version-url]: https://github.com/brblacky/WaveMusic
-[contributors-shield]: https://img.shields.io/github/contributors/CorwinDev/Discord-Bot.svg?style=for-the-badge
-[contributors-url]: https://github.com/Corwindev/Discord-Bot/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/Corwindev/Discord-Bot.svg?style=for-the-badge
-[forks-url]: https://github.com/Corwindev/Discord-Bot/network/members
-[stars-shield]: https://img.shields.io/github/stars/Corwindev/Discord-Bot.svg?style=for-the-badge
-[stars-url]: https://github.com/Corwindev/Discord-Bot/stargazers
-[issues-shield]: https://img.shields.io/github/issues/Corwindev/Discord-Bot.svg?style=for-the-badge
-[issues-url]: https://github.com/Corwindev/Discord-Bot/issues
-[license-shield]: https://img.shields.io/github/license/Corwindev/Discord-Bot.svg?style=for-the-badge
-[license-url]: https://github.com/Corwindev/Discord-Bot/blob/master/LICENSE
+Support server: https://discord.gg/Ehmqr5drSz
+
+## 📄 License
+
+MIT
+
+LightCore is an independent project. This repository is not the official source of any other Discord bot or project.
