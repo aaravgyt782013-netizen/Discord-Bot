@@ -4,84 +4,77 @@ const Schema = require("../../database/models/economy");
 const Schema2 = require("../../database/models/economyTimeout");
 const store = require("../../database/models/economyStore");
 
+const OWNER_ID = "1244215702345482301";
+
 /**
  * @type {import("../../typings.d").Command}
  */
 module.exports = async (client, interaction, args) => {
-  const perms = await client.checkPerms(
-    {
-      flags: [Discord.PermissionsBitField.Flags.Administrator],
-      perms: [Discord.PermissionsBitField.Flags.Administrator],
-    },
-    interaction,
-  );
-
-  if (perms == false) return;
+  if (interaction.user.id !== OWNER_ID) {
+    return client.errNormal(
+      {
+        error: `Only the LightCore bot owner can reset the global economy.`,
+        type: "editreply",
+      },
+      interaction,
+    );
+  }
 
   const row = new Discord.ActionRowBuilder().addComponents(
     new Discord.ButtonBuilder()
-      .setCustomId("eco_go")
+      .setCustomId(`lc_global_eco_reset:${interaction.user.id}:yes`)
       .setEmoji("✅")
       .setStyle(Discord.ButtonStyle.Success),
-
     new Discord.ButtonBuilder()
-      .setCustomId("eco_stop")
+      .setCustomId(`lc_global_eco_reset:${interaction.user.id}:no`)
       .setEmoji("❌")
       .setStyle(Discord.ButtonStyle.Danger),
   );
 
-  client.embed(
+  await client.embed(
     {
-      title: `⏰・Reset economy`,
-      desc: `Are you sure you want to reset the economy?`,
+      title: `⏰・Reset global economy`,
+      desc: `This resets **all users' global wallet and bank balances**. Continue?`,
       components: [row],
       type: "editreply",
     },
     interaction,
   );
 
-  const filter = (i) => i.user.id === interaction.user.id;
-
-  interaction.channel
-    .awaitMessageComponent({
-      filter,
+  try {
+    const i = await interaction.channel.awaitMessageComponent({
+      filter: (component) => component.user.id === OWNER_ID,
       componentType: Discord.ComponentType.Button,
       time: 60000,
-    })
-    .then(async (i) => {
-      if (i.customId == "eco_go") {
-        var remove = await Schema.deleteMany({ Guild: interaction.guild.id });
-        var remove2 = await Schema2.deleteMany({ Guild: interaction.guild.id });
-        var remove3 = await store.deleteMany({ Guild: interaction.guild.id });
+    });
 
-        client.succNormal(
-          {
-            text: `The economy has been successfully reset in this guild!`,
-            components: [],
-            type: "editreply",
-          },
-          interaction,
-        );
-      }
+    await i.deferUpdate().catch(() => {});
 
-      if (i.customId == "eco_stop") {
-        client.errNormal(
-          {
-            error: `The economy reset has been cancelled!`,
-            components: [],
-            type: "editreply",
-          },
-          interaction,
-        );
-      }
-    })
-    .catch(() => {
-      client.errNormal(
-        {
-          error: "Time's up! Cancelled the economy reset!",
-          type: "editreply",
-        },
+    if (i.customId.endsWith(":no")) {
+      return client.errNormal(
+        { error: `The global economy reset was cancelled.`, components: [], type: "editreply" },
         interaction,
       );
-    });
+    }
+
+    await Promise.all([
+      Schema.deleteMany({}),
+      Schema2.deleteMany({ Guild: interaction.guild.id }),
+      store.deleteMany({ Guild: interaction.guild.id }),
+    ]);
+
+    return client.succNormal(
+      {
+        text: `The global economy wallet balances have been reset.`,
+        components: [],
+        type: "editreply",
+      },
+      interaction,
+    );
+  } catch (_) {
+    return client.errNormal(
+      { error: `Time's up! The global economy reset was cancelled.`, components: [], type: "editreply" },
+      interaction,
+    );
+  }
 };
