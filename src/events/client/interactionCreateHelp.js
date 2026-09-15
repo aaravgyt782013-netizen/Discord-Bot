@@ -63,19 +63,14 @@ function prefixCommandLines(client, category, prefix) {
     .map((name) => `\`${prefix}${name}\``);
 }
 
-function buildEmbed(client, interaction, mode, category) {
+function buildEmbed(client, mode, category) {
   const prefix = client.config.discord.prefix || ".";
   const isPrefix = mode === "prefix";
-  const lines = isPrefix
-    ? prefixCommandLines(client, category, prefix)
-    : slashCommandLines(client, category);
-
+  const lines = isPrefix ? prefixCommandLines(client, category, prefix) : slashCommandLines(client, category);
   const title = category.charAt(0).toUpperCase() + category.slice(1);
   const syntax = isPrefix ? `**Prefix:** ${prefix}` : "**Slash:** /";
   const chunks = [];
 
-  // Discord embeds have a 1024-character field limit. Keep every loaded command
-  // visible by splitting the category into multiple fields when necessary.
   let chunk = "";
   for (const line of lines) {
     const next = chunk ? `${chunk}\n${line}` : line;
@@ -88,14 +83,15 @@ function buildEmbed(client, interaction, mode, category) {
   }
   if (chunk) chunks.push(chunk);
 
-  const fields = chunks.slice(0, 5).map((value, index) => ({
-    name: chunks.length > 1 ? `${index === 0 ? "Commands" : `Commands ${index + 1}`}` : "Commands",
+  // Up to 10 fields keeps the complete category visible while respecting
+  // Discord's per-field and embed limits for normal LightCore command sets.
+  const fields = chunks.slice(0, 10).map((value, index) => ({
+    name: chunks.length > 1 ? `Commands ${index + 1}` : "Commands",
     value,
     inline: false,
   }));
 
   if (!fields.length) fields.push({ name: "Commands", value: "No commands are currently loaded in this category.", inline: false });
-  if (chunks.length > 5) fields[4].value += `\n…and ${lines.length - chunks.slice(0, 5).join("\n").split("\n").length} more commands are loaded.`;
 
   return new Discord.EmbedBuilder()
     .setTitle(`❓・LightCore ${title}`)
@@ -144,6 +140,8 @@ module.exports = async (client, interaction) => {
   const category = interaction.values?.[0];
   if (!CATEGORY_ORDER.includes(category)) return;
 
-  const embed = buildEmbed(client, interaction, mode, category);
-  return interaction.update({ embeds: [embed], components: [buildMenu(mode, owner)] });
+  return interaction.update({
+    embeds: [buildEmbed(client, mode, category)],
+    components: [buildMenu(mode, owner)],
+  });
 };
