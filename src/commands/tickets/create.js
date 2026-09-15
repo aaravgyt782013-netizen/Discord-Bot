@@ -21,14 +21,14 @@ module.exports = async (client, interaction) => {
       return client.errNormal({ error: existingChannel ? `You already have an open ticket: ${existingChannel}` : "You already have an unresolved ticket. Please finish it before opening another.", type }, interaction);
     }
 
-    const data = await ticketSchema.findOne({ Guild: interaction.guild.id });
-    if (!data) return client.errNormal({ error: "Ticket setup is not configured yet. Ask an administrator to run `.setup tickets`.", type }, interaction);
+    const setup = await ticketSchema.findOne({ Guild: interaction.guild.id }).lean();
+    if (!setup) return client.errNormal({ error: "Ticket setup is not configured yet. Ask an administrator to run `.setup tickets`.", type }, interaction);
 
-    let categoryConfig = selectedId ? data.Categories?.find((item) => item.Enabled !== false && (item._id?.toString() === selectedId || item.Name === selectedId || item.Category === selectedId)) : null;
-    if (!categoryConfig && data.Categories?.length) categoryConfig = data.Categories.find((item) => item.Enabled !== false) || data.Categories[0];
+    let categoryConfig = selectedId ? setup.Categories?.find((item) => item.Enabled !== false && (item._id?.toString() === selectedId || item.Name === selectedId || item.Category === selectedId)) : null;
+    if (!categoryConfig && setup.Categories?.length) categoryConfig = setup.Categories.find((item) => item.Enabled !== false) || setup.Categories[0];
     if (!categoryConfig) {
-      if (!data.Category || !data.Role) return client.errNormal({ error: "No ticket category is configured.", type }, interaction);
-      categoryConfig = { Name: "Support", Category: data.Category, Role: data.Role, Logs: data.Logs, Transcript: data.Logs, Description: "Support ticket", Emoji: "🎫" };
+      if (!setup.Category || !setup.Role) return client.errNormal({ error: "No ticket category is configured.", type }, interaction);
+      categoryConfig = { Name: "Support", Category: setup.Category, Role: setup.Role, Logs: setup.Logs, Transcript: null, Description: "Support ticket", Emoji: "🎫" };
     }
 
     const parent = interaction.guild.channels.cache.get(categoryConfig.Category);
@@ -42,25 +42,41 @@ module.exports = async (client, interaction) => {
     }
 
     const perms = [Discord.PermissionsBitField.Flags.ViewChannel, Discord.PermissionsBitField.Flags.SendMessages, Discord.PermissionsBitField.Flags.AttachFiles, Discord.PermissionsBitField.Flags.ReadMessageHistory, Discord.PermissionsBitField.Flags.AddReactions];
-    const count = (data.TicketCount || 0) + 1;
+
+    // Allocate the ticket number atomically so two users opening tickets at the same time cannot receive the same ID.
+    const counter = await ticketSchema.findOneAndUpdate(
+      { Guild: interaction.guild.id },
+      { $inc: { TicketCount: 1 } },
+      { new: true, upsert: true },
+    ).lean();
+    const count = Number(counter?.TicketCount || 1);
     const ticketId = String(count).padStart(4, "0");
     const cleanName = String(categoryConfig.Name || "support").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "support";
 
-    const channel = await interaction.guild.channels.create({
-      name: `${cleanName}-${ticketId}`,
-      type: Discord.ChannelType.GuildText,
-      parent: parent.id,
-      reason: `LightCore ticket opened by ${interaction.user.tag}`,
-      permissionOverwrites: [
-        { id: interaction.guild.id, deny: [Discord.PermissionsBitField.Flags.ViewChannel] },
-        { id: interaction.user.id, allow: perms },
-        { id: role.id, allow: perms },
-      ],
-    });
+    let channel;
+    try {
+      channel = await interaction.guild.channels.create({
+        name: `${cleanName}-${ticketId}`,
+        type: Discord.ChannelType.GuildText,
+        parent: parent.id,
+        reason: `LightCore ticket opened by ${interaction.user.tag}`,
+        permissionOverwrites: [
+          { id: interaction.guild.id, deny: [Discord.PermissionsBitField.Flags.ViewChannel] },
+          { id: interaction.user.id, allow: perms },
+          { id: role.id, allow: perms },
+        ],
+      });
+    } catch (error) {
+      console.error("Ticket channel creation failed:", error);
+      return client.errNormal({ error: "I could not create the ticket channel. Check my **Manage Channels** permission and try again.", type }, interaction);
+    }
 
-    data.TicketCount = count;
-    await data.save();
-    await new ticketChannels({ Guild: interaction.guild.id, TicketID: count, channelID: channel.id, creator: interaction.user.id, claimed: "None", Category: categoryConfig.Name, resolved: false }).save();
+    try {
+      await new ticketChannels({ Guild: interaction.guild.id, TicketID: count, channelID: channel.id, creator: interaction.user.id, claimed: "None", Category: categoryConfig.Name, resolved: false }).save();
+    } catch (error) {
+      await channel.delete("LightCore ticket record could not be saved").catch(() => {});
+      throw error;
+    }
 
     const configuredMessage = await ticketMessageConfig.findOne({ Guild: interaction.guild.id }).lean();
     const openTicket = configuredMessage?.openTicket || `Thanks for creating a ticket, ${interaction.user}!\nSupport will be with you shortly.`;
