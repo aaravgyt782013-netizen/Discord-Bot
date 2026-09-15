@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
-const { Chalk } = require("chalk");
-const chalk = new Chalk();
+const chalk = require("chalk");
 const cache = require("ts-cache-mongoose");
 
 cache.init(mongoose, {
