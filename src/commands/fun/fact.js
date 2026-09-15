@@ -1,16 +1,23 @@
-const Discord = require("discord.js");
-const request = require("request");
+const fetch = require("node-fetch");
 
 /**
  * @type {import("../../typings.d").Command}
  */
-module.exports = async (client, interaction, args) => {
-  var url = "https://uselessfacts.jsph.pl/random.json?language=en";
+module.exports = async (client, interaction) => {
+  try {
+    const response = await fetch("https://uselessfacts.jsph.pl/random.json?language=en", {
+      headers: { Accept: "application/json" },
+      timeout: 8000,
+    });
 
-  request(url, function (err, response, body) {
-    fact = JSON.parse(body).text;
+    if (!response.ok) {
+      throw new Error(`Facts API returned HTTP ${response.status}`);
+    }
 
-    client.embed(
+    const data = await response.json();
+    const fact = String(data?.text || "I couldn't get a fact right now.").slice(0, 4000);
+
+    return client.embed(
       {
         title: `😂・Fact`,
         desc: fact,
@@ -18,5 +25,15 @@ module.exports = async (client, interaction, args) => {
       },
       interaction,
     );
-  });
+  } catch (error) {
+    console.error("Fact command failed:", error);
+    return client.embed(
+      {
+        title: `❌・Fact`,
+        desc: "I couldn't fetch a random fact right now. Please try again in a moment.",
+        type: "editreply",
+      },
+      interaction,
+    );
+  }
 };
