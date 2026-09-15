@@ -1,7 +1,5 @@
 const Discord = require("discord.js");
-const { Chalk } = require("chalk");
-const chalk = new Chalk();
-const { random } = require("mathjs");
+const chalk = require("chalk");
 
 module.exports = async (client) => {
   const startLogs = new Discord.WebhookClient({
@@ -24,7 +22,7 @@ module.exports = async (client) => {
     chalk.green(`servers!`),
   );
 
-  let embed = new Discord.EmbedBuilder()
+  const embed = new Discord.EmbedBuilder()
     .setTitle(`🆙・Finishing shard`)
     .setDescription(`A shard just finished`)
     .addFields(
@@ -36,36 +34,36 @@ module.exports = async (client) => {
       { name: "📃┆State", value: `Ready`, inline: true },
     )
     .setColor(client.config.colors.normal);
-  startLogs.send({
-    username: "Bot Logs",
-    embeds: [embed],
-  });
 
-  setInterval(async function () {
-    const promises = [client.shard.fetchClientValues("guilds.cache.size")];
-    return Promise.all(promises).then((results) => {
-      const totalGuilds = results[0].reduce(
-        (acc, guildCount) => acc + guildCount,
-        0,
-      );
-      let statuttext;
-      if (process.env.DISCORD_STATUS) {
-        statuttext = process.env.DISCORD_STATUS.split(", ");
-      } else {
-        statuttext = [
-          `・❓┆/help`,
-          `・💻┆${totalGuilds} servers`,
-          `・📨┆discord.gg/corwindev`,
-          `・🎉┆400+ commands`,
-          `・🏷️┆Version ${require(`${process.cwd()}/package.json`).version}`,
-        ];
-      }
-      const randomText =
-        statuttext[Math.floor(Math.random() * statuttext.length)];
+  try {
+    await startLogs.send({
+      username: "Bot Logs",
+      embeds: [embed],
+    });
+  } catch (error) {
+    console.error("Startup webhook failed:", error);
+  }
+
+  setInterval(async () => {
+    try {
+      const results = await client.shard.fetchClientValues("guilds.cache.size");
+      const totalGuilds = results.reduce((acc, guildCount) => acc + guildCount, 0);
+      const statusText = process.env.DISCORD_STATUS
+        ? process.env.DISCORD_STATUS.split(", ")
+        : [
+            `・❓┆/help`,
+            `・💻┆${totalGuilds} servers`,
+            `・📨┆discord.gg/Ehmqr5drSz`,
+            `・🎉┆300+ commands`,
+            `・🏷️┆Version ${require(`${process.cwd()}/package.json`).version}`,
+          ];
+      const randomText = statusText[Math.floor(Math.random() * statusText.length)];
       client.user.setPresence({
         activities: [{ name: randomText, type: Discord.ActivityType.Playing }],
         status: "online",
       });
-    });
+    } catch (error) {
+      console.error("Presence update failed:", error);
+    }
   }, 50000);
 };
