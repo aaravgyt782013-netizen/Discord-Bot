@@ -1,63 +1,37 @@
+const Discord = require("discord.js");
 const ticketSchema = require("../../database/models/tickets");
 
-module.exports = async (client, interaction, args) => {
-  const category = interaction.options.getChannel("category");
-  const role = interaction.options.getRole("role");
-  const channel = interaction.options.getChannel("channel");
-  const logs = interaction.options.getChannel("logs");
-
-  if (!category || !role || !channel || !logs) {
-    return client.errNormal({ error: "Please provide the category, support role, panel channel and logs channel.", type: "editreply" }, interaction);
-  }
-
+module.exports = async (client, interaction) => {
+  if (!interaction.guild) return;
   try {
     let data = await ticketSchema.findOne({ Guild: interaction.guild.id });
     if (!data) data = new ticketSchema({ Guild: interaction.guild.id, TicketCount: 0, Categories: [] });
 
-    const categoryName = category.name || `Category ${data.Categories.length + 1}`;
-    const existing = data.Categories.find((item) => item.Category === category.id);
+    const categories = (data.Categories || []).filter((item) => item.Enabled !== false);
+    const list = categories.length
+      ? categories.map((item, index) => `${index + 1}. ${item.Emoji || "🎫"} **${item.Name}** — ${item.Description || "Support ticket"}`).join("\n")
+      : "No categories configured yet.";
 
-    if (existing) {
-      existing.Name = categoryName;
-      existing.Category = category.id;
-      existing.Role = role.id;
-      existing.Logs = logs.id;
-      existing.Transcript = logs.id;
-      existing.Enabled = true;
-    } else {
-      data.Categories.push({
-        Name: categoryName,
-        Category: category.id,
-        Role: role.id,
-        Logs: logs.id,
-        Transcript: logs.id,
-        Description: `Open a ${categoryName} ticket`,
-        Emoji: "🎫",
-        Enabled: true,
-      });
-    }
+    const row = new Discord.ActionRowBuilder().addComponents(
+      new Discord.ButtonBuilder().setCustomId(`lc_ts_add:${interaction.user.id}`).setLabel("Add Category").setEmoji("➕").setStyle(Discord.ButtonStyle.Success),
+      new Discord.ButtonBuilder().setCustomId(`lc_ts_manage:${interaction.user.id}`).setLabel("Manage Categories").setEmoji("🗂️").setStyle(Discord.ButtonStyle.Secondary),
+      new Discord.ButtonBuilder().setCustomId(`lc_ts_panel:${interaction.user.id}`).setLabel("Panel Editor").setEmoji("🎨").setStyle(Discord.ButtonStyle.Primary),
+      new Discord.ButtonBuilder().setCustomId(`lc_ts_publish:${interaction.user.id}`).setLabel("Publish Panel").setEmoji("📨").setStyle(Discord.ButtonStyle.Success),
+    );
 
-    // Keep the original fields for compatibility with existing ticket commands.
-    if (!data.Category) data.Category = category.id;
-    if (!data.Role) data.Role = role.id;
-    data.Channel = channel.id;
-    if (!data.Logs) data.Logs = logs.id;
-
-    await data.save();
-
-    return client.succNormal({
-      text: `**${categoryName}** ticket category has been configured. You can run this command again for more categories.`,
+    return client.embed({
+      title: "🎫・LightCore Ticket Setup",
+      desc: "Use this setup panel to build your ticket system. Add multiple categories, configure each one independently, then customise and publish your public dropdown panel.",
       fields: [
-        { name: "📂┆Category", value: `${category}` },
-        { name: "🛡️┆Support role", value: `${role}` },
-        { name: "📋┆Panel", value: `${channel}` },
-        { name: "📝┆Logs / transcript", value: `${logs}` },
-        { name: "🎫┆Total categories", value: `${data.Categories.length}` },
+        { name: "🗂️┆Categories", value: list, inline: false },
+        { name: "⚙️┆Per category", value: "Every category can have its own Discord category, support role, logs channel and transcript channel.", inline: false },
+        { name: "🎨┆Panel Editor", value: "At the end, set the panel title, description and channel, then publish it for your members.", inline: false },
       ],
-      type: "editreply",
+      components: [row],
+      type: interaction.isCommand?.() ? "editreply" : "reply",
     }, interaction);
   } catch (error) {
-    console.error("Ticket setup error:", error);
-    return client.errNormal({ error: "Could not save the ticket category configuration.", type: "editreply" }, interaction);
+    console.error("Ticket setup wizard error:", error);
+    return client.errNormal({ error: "I could not open the ticket setup wizard.", type: interaction.isCommand?.() ? "editreply" : "reply" }, interaction);
   }
 };
