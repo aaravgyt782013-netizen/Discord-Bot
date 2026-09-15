@@ -1,78 +1,35 @@
-const Discord = require("discord.js");
-
 const Schema = require("../../database/models/economy");
+
+const OWNER_ID = "1244215702345482301";
 
 /**
  * @type {import("../../typings.d").Command}
  */
-module.exports = async (client, interaction, args) => {
-  const perms = await client.checkUserPerms(
-    {
-      flags: [Discord.PermissionsBitField.Flags.Administrator],
-      perms: [Discord.PermissionsBitField.Flags.Administrator],
-    },
-    interaction,
-  );
-
-  if (perms == false) return;
+module.exports = async (client, interaction) => {
+  if (interaction.user.id !== OWNER_ID) {
+    return client.errNormal({ error: `Only the LightCore bot owner can modify global money.`, type: "editreply" }, interaction);
+  }
 
   const user = interaction.options.getUser("user");
-  let amount = interaction.options.getNumber("amount");
+  const amount = Number(interaction.options.getNumber("amount"));
 
-  if (!user || !amount)
-    return client.errUsage(
-      { usage: "addmoney [user] [amount]", type: "editreply" },
-      interaction,
-    );
+  if (!user || user.bot || !Number.isFinite(amount) || amount <= 0) {
+    return client.errNormal({ error: `Provide a real user and a positive amount.`, type: "editreply" }, interaction);
+  }
 
-  if (isNaN(amount))
-    return client.errNormal(
-      { error: "Enter a valid number!", type: "editreply" },
-      interaction,
-    );
+  const money = Math.floor(amount);
+  const data = await Schema.findOneAndUpdate(
+    { User: user.id },
+    { $inc: { Money: money }, $setOnInsert: { Bank: 0 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  ).exec();
 
-  if (user.bot)
-    return client.errNormal(
-      {
-        error: "You cannot add money to a bot!",
-        type: "editreply",
-      },
-      interaction,
-    );
-
-  client.addMoney(interaction, user, parseInt(amount));
-
-  setTimeout(() => {
-    Schema.findOne({ Guild: interaction.guild.id, User: user.id }).then(
-      async (data) => {
-        if (data) {
-          client.succNormal(
-            {
-              text: `Added money to a user!`,
-              fields: [
-                {
-                  name: `👤┆User`,
-                  value: `<@!${user.id}>`,
-                  inline: true,
-                },
-                {
-                  name: `${client.emotes.economy.coins}┆Amount`,
-                  value: `$${amount}`,
-                  inline: true,
-                },
-              ],
-              type: "editreply",
-            },
-            interaction,
-          );
-        } else {
-          client.errNormal(
-            { error: `This user doesn't have any money!`, type: "editreply" },
-            interaction,
-          );
-        }
-      },
-      500,
-    );
-  });
+  return client.succNormal({
+    text: `Added **$${money.toLocaleString()}** to the user's global wallet.`,
+    fields: [
+      { name: `👤┆User`, value: `${user}`, inline: true },
+      { name: `💰┆New Wallet`, value: `$${data.Money.toLocaleString()}`, inline: true },
+    ],
+    type: "editreply",
+  }, interaction);
 };
