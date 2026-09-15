@@ -36,8 +36,6 @@ function loadPrefixCommands(client) {
 }
 
 function addPrefixAliases(client) {
-    // Slash command modules remain the single source of truth. Prefix commands
-    // reuse the exact same handlers instead of maintaining duplicate commands.
     const aliases = new Map([
         ["ticket", "tickets"],
         ["cmd", "commands"],
