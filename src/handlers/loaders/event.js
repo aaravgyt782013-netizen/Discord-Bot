@@ -35,15 +35,18 @@ module.exports = (client) => {
         for (const file of events) {
             const event = require(`../../events/${dirs}/${file}`);
             const eventName = file.split(".")[0];
-            const eventUpperCase =
-                eventName.charAt(0).toUpperCase() + eventName.slice(1);
-            if (Discord.Events[eventUpperCase] === undefined) {
+
+            // Allow focused handlers such as interactionCreateHelp.js to share
+            // Discord's interactionCreate event without changing their filename.
+            const normalizedEventName = eventName.toLowerCase();
+            const discordEvent = normalizedEventName.startsWith("interactioncreate")
+                ? Discord.Events.InteractionCreate
+                : Discord.Events[eventName.charAt(0).toUpperCase() + eventName.slice(1)];
+
+            if (discordEvent === undefined) {
                 client.on(eventName, event.bind(null, client));
             } else {
-                client.on(
-                    Discord.Events[eventUpperCase],
-                    event.bind(null, client),
-                );
+                client.on(discordEvent, event.bind(null, client));
             }
         }
     });
