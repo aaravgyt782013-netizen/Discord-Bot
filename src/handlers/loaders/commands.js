@@ -1,5 +1,6 @@
 const Discord = require("discord.js");
-const { REST, Routes, Chalk } = require("discord.js");
+const { REST, Routes } = require("discord.js");
+const { Chalk } = require("chalk");
 const chalk = new Chalk();
 const fs = require("fs");
 const path = require("path");
