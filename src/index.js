@@ -1,6 +1,5 @@
 const Discord = require("discord.js");
-const { Chalk } = require("chalk");
-const chalk = new Chalk();
+const chalk = require("chalk");
 const http = require("http");
 
 require("dotenv").config();
