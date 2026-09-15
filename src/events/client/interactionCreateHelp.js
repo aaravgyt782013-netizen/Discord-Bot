@@ -14,7 +14,6 @@ const CATEGORY_ORDER = [
 
 function categoryForName(name) {
   const value = String(name || "").toLowerCase();
-
   if (/ticket|transcript/.test(value)) return "tickets";
   if (/setup|config|prefix|autorole|welcome|reaction.?role|verify|captcha/.test(value)) return "setup";
   if (/ban|kick|mute|warn|timeout|unban|unmute|purge|clear|lock|unlock|slowmode|mod|moderation|antinuke|automod/.test(value)) return "moderation";
@@ -27,17 +26,16 @@ function categoryForName(name) {
 }
 
 function slashCommandLines(client, category) {
-  const commands = [...client.commands.values()]
+  return [...client.commands.values()]
     .filter((command) => command?.data?.name)
     .filter((command) => categoryForName(command.data.name) === category)
-    .sort((a, b) => a.data.name.localeCompare(b.data.name));
-
-  const lines = [];
-  for (const command of commands) {
-    const options = command.data.options || [];
-    const subcommands = options.filter((option) => option.type === 1 || option.type === 2);
-    if (subcommands.length) {
-      for (const sub of subcommands) {
+    .sort((a, b) => a.data.name.localeCompare(b.data.name))
+    .flatMap((command) => {
+      const options = command.data.options || [];
+      const subs = options.filter((option) => option.type === 1 || option.type === 2);
+      if (!subs.length) return [`\`/${command.data.name}\` — ${command.data.description || "No description"}`];
+      const lines = [];
+      for (const sub of subs) {
         if (sub.type === 2 && Array.isArray(sub.options)) {
           const nested = sub.options.filter((option) => option.type === 1);
           if (nested.length) {
@@ -49,17 +47,14 @@ function slashCommandLines(client, category) {
           lines.push(`\`/${command.data.name} ${sub.name}\` — ${sub.description || "No description"}`);
         }
       }
-    } else {
-      lines.push(`\`/${command.data.name}\` — ${command.data.description || "No description"}`);
-    }
-  }
-  return lines;
+      return lines;
+    });
 }
 
 function prefixCommandLines(client, category, prefix) {
   return [...(client.prefixCommands?.keys() || [])]
     .filter((name) => categoryForName(name) === category)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((name) => `\`${prefix}${name}\``);
 }
 
@@ -67,35 +62,33 @@ function buildEmbed(client, mode, category) {
   const prefix = client.config.discord.prefix || ".";
   const isPrefix = mode === "prefix";
   const lines = isPrefix ? prefixCommandLines(client, category, prefix) : slashCommandLines(client, category);
-  const title = category.charAt(0).toUpperCase() + category.slice(1);
+  const title = category === "fun" ? "Fun & Games" : category.charAt(0).toUpperCase() + category.slice(1);
   const syntax = isPrefix ? `**Prefix:** ${prefix}` : "**Slash:** /";
-  const chunks = [];
+  const description = isPrefix
+    ? `Every command below is a **prefix command**. Use **${prefix}** before the command.`
+    : "Every command below is a **slash command**. Use **/** before the command.";
 
+  const chunks = [];
   let chunk = "";
   for (const line of lines) {
     const next = chunk ? `${chunk}\n${line}` : line;
     if (next.length > 1000) {
       if (chunk) chunks.push(chunk);
       chunk = line;
-    } else {
-      chunk = next;
-    }
+    } else chunk = next;
   }
   if (chunk) chunks.push(chunk);
 
-  // Up to 10 fields keeps the complete category visible while respecting
-  // Discord's per-field and embed limits for normal LightCore command sets.
   const fields = chunks.slice(0, 10).map((value, index) => ({
     name: chunks.length > 1 ? `Commands ${index + 1}` : "Commands",
     value,
     inline: false,
   }));
-
   if (!fields.length) fields.push({ name: "Commands", value: "No commands are currently loaded in this category.", inline: false });
 
   return new Discord.EmbedBuilder()
     .setTitle(`❓・LightCore ${title}`)
-    .setDescription(`${syntax}\n\n${isPrefix ? `Every command below is usable with **${prefix}**.` : "Every command below is a Discord slash command."}`)
+    .setDescription(`${syntax}\n\n${description}`)
     .addFields(fields)
     .setColor(client.config.colors.normal)
     .setFooter({ text: `LightCore • ${lines.length} command${lines.length === 1 ? "" : "s"}` });
@@ -103,21 +96,14 @@ function buildEmbed(client, mode, category) {
 
 function buildMenu(mode, owner) {
   const labels = {
-    moderation: ["Moderation", "🛡️"],
-    tickets: ["Tickets", "🎫"],
-    setup: ["Setup", "⚙️"],
-    fun: ["Fun & Games", "🎮"],
-    music: ["Music", "🎵"],
-    economy: ["Economy", "💰"],
-    utility: ["Utility", "🔧"],
-    automation: ["Automation", "🤖"],
-    other: ["Other", "📦"],
+    moderation: ["Moderation", "🛡️"], tickets: ["Tickets", "🎫"], setup: ["Setup", "⚙️"],
+    fun: ["Fun & Games", "🎮"], music: ["Music", "🎵"], economy: ["Economy", "💰"],
+    utility: ["Utility", "🔧"], automation: ["Automation", "🤖"], other: ["Other", "📦"],
   };
-
   return new Discord.ActionRowBuilder().addComponents(
     new Discord.StringSelectMenuBuilder()
-      .setCustomId(`lc_help:${mode}:${owner}`)
-      .setPlaceholder("Choose a LightCore help category")
+      .setCustomId(mode === "prefix" ? `lc_phelp:${owner}` : `lc_help:${mode}:${owner}`)
+      .setPlaceholder(mode === "prefix" ? "Choose a prefix help category" : "Choose a LightCore help category")
       .addOptions(CATEGORY_ORDER.map((category) => ({
         label: labels[category][0],
         description: mode === "prefix" ? `View ${labels[category][0].toLowerCase()} prefix commands` : `View ${labels[category][0].toLowerCase()} slash commands`,
@@ -129,14 +115,16 @@ function buildMenu(mode, owner) {
 
 module.exports = async (client, interaction) => {
   if (!interaction.isStringSelectMenu?.()) return;
-  if (!interaction.customId.startsWith("lc_help:")) return;
+  if (!interaction.customId.startsWith("lc_phelp:") && !interaction.customId.startsWith("lc_help:")) return;
 
-  const [, mode, owner] = interaction.customId.split(":");
+  const parts = interaction.customId.split(":");
+  const mode = parts[0] === "lc_phelp" ? "prefix" : parts[1];
+  const owner = parts[0] === "lc_phelp" ? parts[1] : parts[2];
   if (!owner || interaction.user.id !== owner) {
     return interaction.reply({ content: "This help menu belongs to another user.", flags: Discord.MessageFlags.Ephemeral });
   }
-
   if (mode !== "prefix" && mode !== "slash") return;
+
   const category = interaction.values?.[0];
   if (!CATEGORY_ORDER.includes(category)) return;
 
