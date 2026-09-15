@@ -15,20 +15,18 @@ module.exports = async (client, interaction) => {
   }
 
   const money = Math.floor(amount);
-  const data = await Schema.findOneAndUpdate(
-    { User: user.id },
-    [
-      {
-        $set: {
-          Money: { $max: [0, { $subtract: [{ $ifNull: ["$Money", 0] }, money] }] },
-        },
-      },
-    ],
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  ).exec();
+  const data = await Schema.findOne({ User: user.id }).exec();
+
+  if (!data) {
+    return client.errNormal({ error: "This user does not have a global economy account yet.", type: "editreply" }, interaction);
+  }
+
+  const removed = Math.min(data.Money, money);
+  data.Money -= removed;
+  await data.save();
 
   return client.succNormal({
-    text: `Removed up to **$${money.toLocaleString()}** from the user's global wallet.`,
+    text: `Removed **$${removed.toLocaleString()}** from the user's global wallet.`,
     fields: [
       { name: "👤┆User", value: `${user}`, inline: true },
       { name: "💰┆New Wallet", value: `$${data.Money.toLocaleString()}`, inline: true },
