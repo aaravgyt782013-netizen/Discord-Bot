@@ -48,16 +48,18 @@ client.player = new Kazagumo(
             const guild = client.guilds.cache.get(guildId);
             if (guild) guild.shard.send(payload);
         },
-        plugins: process.env.SPOTIFY_CLIENT_ID ? [new Spotify({
-            clientId: process.env.SPOTIFY_CLIENT_ID,
-            clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-        })] : [],
+        plugins: process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET
+            ? [new Spotify({
+                clientId: process.env.SPOTIFY_CLIENT_ID,
+                clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+            })]
+            : [],
     },
     new Connectors.DiscordJS(client),
     [
         {
             name: "Lavalink 1",
-            url: (process.env.LAVALINK_HOST ?? "lavalinkv4.serenetia.com") + ":" + (process.env.LAVALINK_PORT ?? 80),
+            url: `${process.env.LAVALINK_HOST ?? "lavalinkv4.serenetia.com"}:${process.env.LAVALINK_PORT ?? 80}`,
             auth: process.env.LAVALINK_PASSWORD ?? "https://seretia.link/discord",
             secure: process.env.LAVALINK_SECURE === "true",
         },
@@ -78,7 +80,7 @@ client.player.shoukaku.on("error", require("./music/error").bind(null, client));
 require("./database/connect")();
 
 client.config = require("./config/bot");
-client.config.discord.prefix = ".";
+client.config.discord.prefix = process.env.DEFAULT_PREFIX || ".";
 client.changelogs = require("./config/changelogs");
 client.emotes = require("./config/emojis.json");
 client.webhooks = require("./config/webhooks.json");
@@ -93,8 +95,13 @@ if (process.env.WEBHOOK_ID && process.env.WEBHOOK_TOKEN) {
 }
 
 client.commands = new Discord.Collection();
+client.prefixCommands = new Discord.Collection();
 client.playerManager = new Map();
 client.queue = new Map();
+client.runtime = {
+    startedAt: Date.now(),
+    version: "12.1.0",
+};
 
 const makeWebhook = (name) => {
     const entry = client.webhooks[name];
@@ -111,6 +118,13 @@ const consoleLogs = makeWebhook("consoleLogs");
 const warnLogs = makeWebhook("warnLogs");
 const safeLog = (hook, payload) => hook?.send(payload).catch(() => {});
 
+const requiredEnvironment = ["DISCORD_TOKEN", "DISCORD_ID"];
+const missingEnvironment = requiredEnvironment.filter((key) => !process.env[key]);
+if (missingEnvironment.length) {
+    console.error(`LightCore cannot start: missing required environment variables: ${missingEnvironment.join(", ")}`);
+    process.exitCode = 1;
+}
+
 fs.readdirSync("./src/handlers").forEach((dir) => {
     const handlerPath = `./handlers/${dir}`;
     const fullPath = `./src/handlers/${dir}`;
@@ -120,11 +134,23 @@ fs.readdirSync("./src/handlers").forEach((dir) => {
         .forEach((handler) => require(`${handlerPath}/${handler}`)(client));
 });
 
-client.login(process.env.DISCORD_TOKEN);
+if (!missingEnvironment.length) {
+    client.login(process.env.DISCORD_TOKEN).catch((error) => {
+        console.error("LightCore failed to login to Discord:", error);
+        safeLog(consoleLogs, {
+            username: "LightCore Logs",
+            embeds: [new Discord.EmbedBuilder()
+                .setTitle("🚨・Discord login failed")
+                .setDescription(`\\`\\`\\`\n${String(error?.stack || error).slice(0, 1900)}\n\\`\\`\\``)
+                .setColor(client.config.colors.error)
+                .setTimestamp()],
+        });
+        process.exitCode = 1;
+    });
+}
 
 process.on("unhandledRejection", (error) => {
     console.error("Unhandled promise rejection:", error);
-    if (!error) return;
     const errorText = String(error?.stack || error).slice(0, 1900);
     safeLog(consoleLogs, {
         username: "LightCore Logs",
@@ -172,5 +198,17 @@ client.on(Discord.ShardEvents.Error, (error) => {
             .setTimestamp()],
     });
 });
+
+const shutdown = async (signal) => {
+    console.log(`LightCore received ${signal}; shutting down gracefully.`);
+    try {
+        client.destroy();
+    } finally {
+        process.exit(0);
+    }
+};
+
+process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", () => shutdown("SIGTERM"));
 
 module.exports = client;
