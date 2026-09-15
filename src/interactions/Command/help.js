@@ -13,10 +13,11 @@ module.exports = {
     const isPrefix = Boolean(interaction.message);
     const mode = isPrefix ? "prefix" : "slash";
     const owner = interaction.user.id;
+    const customId = isPrefix ? `lc_phelp:${owner}` : `lc_help:${mode}:${owner}`;
 
     const menu = new StringSelectMenuBuilder()
-      .setCustomId(`lc_help:${mode}:${owner}`)
-      .setPlaceholder("Choose a LightCore help category")
+      .setCustomId(customId)
+      .setPlaceholder(isPrefix ? "Choose a prefix help category" : "Choose a LightCore help category")
       .addOptions([
         { label: "Moderation", description: isPrefix ? "View moderation prefix commands" : "View moderation slash commands", emoji: "🛡️", value: "moderation" },
         { label: "Tickets", description: isPrefix ? "View ticket prefix commands" : "View ticket slash commands", emoji: "🎫", value: "tickets" },
