@@ -1,7 +1,10 @@
-const Discord = require('discord.js');
-const { Chalk } = require('chalk');
-const chalk = new Chalk();
+const chalk = require('chalk');
 
 module.exports = (client, node) => {
-    console.log(chalk.blue(chalk.bold(`System`)), (chalk.white(`>>`)), chalk.red(`Lavalink`), chalk.green(`connected!`))
+    console.log(
+        chalk.blue(chalk.bold('System')),
+        chalk.white('>>'),
+        chalk.red('Lavalink'),
+        chalk.green('connected!')
+    );
 };
