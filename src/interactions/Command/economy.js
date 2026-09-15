@@ -1,5 +1,4 @@
-const { CommandInteraction, Client } = require("discord.js");
-const { SlashCommandBuilder } = require("discord.js");
+const { CommandInteraction, Client, SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -24,9 +23,6 @@ module.exports = {
     .addSubcommand((s) => s.setName("store").setDescription("Show the economy store"))
     .addSubcommand((s) => s.setName("buy").setDescription("Buy an item from the store"))
     .addSubcommand((s) => s.setName("leaderboard").setDescription("See the economy leaderboard").addStringOption((o) => o.setName("type").setDescription("Leaderboard type").setRequired(true).addChoices({ name: "Money", value: "money" }, { name: "Bank", value: "bank" })))
-    .addSubcommand((s) => s.setName("boss").setDescription("Fight a PvE boss for a reward"))
-    .addSubcommand((s) => s.setName("quest").setDescription("View today's quest").addStringOption((o) => o.setName("action").setDescription("Quest action").addChoices({ name: "View", value: "view" }, { name: "Claim", value: "claim" })))
-    .addSubcommand((s) => s.setName("pet").setDescription("View, adopt, or feed your pet").addStringOption((o) => o.setName("action").setDescription("Pet action").addChoices({ name: "View", value: "view" }, { name: "Adopt", value: "adopt" }, { name: "Feed", value: "feed" })).addStringOption((o) => o.setName("type").setDescription("Pet type").addChoices({ name: "Fox", value: "fox" }, { name: "Cat", value: "cat" }, { name: "Dog", value: "dog" }, { name: "Dragon", value: "dragon" })))
     .addSubcommand((s) => s.setName("present").setDescription("Get your weekly present"))
     .addSubcommand((s) => s.setName("additem").setDescription("Add a role item to the store").addRoleOption((o) => o.setName("role").setDescription("Role").setRequired(true)).addNumberOption((o) => o.setName("amount").setDescription("Price").setRequired(true)))
     .addSubcommand((s) => s.setName("deleteitem").setDescription("Delete a role item").addRoleOption((o) => o.setName("role").setDescription("Role").setRequired(true)))
