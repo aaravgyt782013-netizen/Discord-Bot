@@ -27,13 +27,28 @@ function loadPrefixCommands(client) {
                 client.prefixCommands.set(key, handler);
                 loaded++;
             } catch (error) {
-                console.error(`Failed to load prefix command ${full}:`, error);
+                console.error(`Failed to load prefix feature ${full}:`, error);
             }
         }
     }
 
     walk(root);
     return loaded;
+}
+
+function addPrefixAliases(client) {
+    // Slash command modules remain the single source of truth. Prefix commands
+    // reuse the exact same handlers instead of maintaining duplicate commands.
+    const aliases = new Map([
+        ["ticket", "tickets"],
+        ["cmd", "commands"],
+    ]);
+
+    for (const [alias, target] of aliases) {
+        if (client.commands.has(target) && !client.commands.has(alias)) {
+            client.commands.set(alias, client.commands.get(target));
+        }
+    }
 }
 
 module.exports = (client) => {
@@ -46,14 +61,14 @@ module.exports = (client) => {
     const prefixCount = loadPrefixCommands(client);
 
     if (client.shard.ids[0] === 0) {
-        console.log(chalk.blue(chalk.bold("System")), chalk.white(">>"), chalk.green("Loading commands"), chalk.white("..."));
-        console.log(chalk.blue(chalk.bold("System")), chalk.white(">>"), chalk.red(`${prefixCount}`), chalk.green("prefix feature commands loaded"));
+        console.log(chalk.blue(chalk.bold("LightCore")), chalk.white(">>"), chalk.green("Loading commands"), chalk.white("..."));
+        console.log(chalk.blue(chalk.bold("LightCore")), chalk.white(">>"), chalk.red(`${prefixCount}`), chalk.green("prefix feature commands loaded"));
     }
 
     fs.readdirSync("./src/interactions").forEach((dirs) => {
         const commandFiles = fs.readdirSync(`./src/interactions/${dirs}`).filter((file) => file.endsWith(".js"));
         if (client.shard.ids[0] === 0) {
-            console.log(chalk.blue(chalk.bold("System")), chalk.white(">>"), chalk.red(`${commandFiles.length}`), chalk.green("commands of"), chalk.red(`${dirs}`), chalk.green("loaded"));
+            console.log(chalk.blue(chalk.bold("LightCore")), chalk.white(">>"), chalk.red(`${commandFiles.length}`), chalk.green("commands of"), chalk.red(`${dirs}`), chalk.green("loaded"));
         }
 
         for (const file of commandFiles) {
@@ -63,20 +78,22 @@ module.exports = (client) => {
         }
     });
 
+    addPrefixAliases(client);
+
     const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
     (async () => {
         try {
             await interactionLogs.send({
-                username: "Bot Logs",
-                embeds: [new Discord.EmbedBuilder().setDescription("Started refreshing application (/) commands.").setColor(client.config.colors.normal)],
+                username: "LightCore Logs",
+                embeds: [new Discord.EmbedBuilder().setDescription("Started refreshing LightCore application commands.").setColor(client.config.colors.normal)],
             }).catch(() => {});
 
             await rest.put(Routes.applicationCommands(client.config.discord.id), { body: commands });
 
             await interactionLogs.send({
-                username: "Bot Logs",
-                embeds: [new Discord.EmbedBuilder().setDescription(`Successfully reloaded ${commands.length} application (/) commands and ${prefixCount} prefix feature commands.`).setColor(client.config.colors.normal)],
+                username: "LightCore Logs",
+                embeds: [new Discord.EmbedBuilder().setDescription(`Successfully reloaded ${commands.length} application commands and ${prefixCount} prefix feature commands.`).setColor(client.config.colors.normal)],
             }).catch(() => {});
         } catch (error) {
             console.log(error);
