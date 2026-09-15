@@ -9,25 +9,8 @@
     "dev": "nodemon . --trace-warnings",
     "add-dev": "node src/dev.js"
   },
-  "keywords": [
-    "Discord Bot",
-    "Moderation",
-    "Tickets",
-    "Automation",
-    "Music",
-    "Games",
-    "Giveaways",
-    "Economy",
-    "Leveling",
-    "Invites",
-    "Messages",
-    "Utilities",
-    "Suggestions",
-    "Server Stats"
-  ],
-  "overrides": {
-    "canvas": "^3.0.0"
-  },
+  "keywords": ["Discord Bot","Moderation","Tickets","Automation","Music","Games","Giveaways","Economy","Leveling","Invites","Messages","Utilities","Suggestions","Server Stats"],
+  "overrides": {"canvas": "^3.0.0"},
   "author": "LightCore",
   "license": "MIT",
   "dependencies": {
@@ -54,7 +37,7 @@
     "is-hexcolor": "^1.0.0",
     "isgd": "^1.1.3",
     "jsdom": "^21.1.0",
-    "kazagumo": "^3.4.0",
+    "kazagumo": "^3.4.3",
     "kazagumo-spotify": "^2.1.1",
     "libsodium-wrappers": "^0.8.4",
     "lyrics-finder": "^21.7.0",
@@ -78,7 +61,7 @@
   "allowScripts": {
     "@discordjs/opus@0.10.0": true,
     "ffmpeg-static@5.3.0": true,
-    "zlib-sync@0.1.0": true,
+    "zlib-sync@0.1.10": true,
     "canvas@3.2.3": true,
     "canvacord@5.4.10": true
   }
