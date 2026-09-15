@@ -22,7 +22,6 @@
     "axios": "^1.2.2",
     "canvacord": "^5.4.10",
     "chalk": "^4.1.2",
-    "canvacord": "^5.4.10",
     "discord-image-generation": "^1.4.23",
     "dompurify": "^3.4.14",
     "dotenv": "^17.4.2",
