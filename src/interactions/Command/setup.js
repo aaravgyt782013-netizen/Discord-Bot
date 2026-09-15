@@ -15,36 +15,7 @@ module.exports = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("tickets")
-        .setDescription("Setup the tickets")
-        .addChannelOption((option) =>
-          option
-            .setName("category")
-            .setDescription(
-              "Select a category where the tickets should come in",
-            )
-            .setRequired(true)
-            .addChannelTypes(ChannelType.GuildCategory),
-        )
-        .addRoleOption((option) =>
-          option
-            .setName("role")
-            .setDescription("Select the support role")
-            .setRequired(true),
-        )
-        .addChannelOption((option) =>
-          option
-            .setName("channel")
-            .setDescription("The channel for the ticket panel")
-            .setRequired(true)
-            .addChannelTypes(ChannelType.GuildText),
-        )
-        .addChannelOption((option) =>
-          option
-            .setName("logs")
-            .setDescription("The channel for the ticket logs")
-            .setRequired(true)
-            .addChannelTypes(ChannelType.GuildText),
-        ),
+        .setDescription("Open the interactive LightCore ticket setup wizard"),
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -172,7 +143,7 @@ module.exports = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("ticketpanel")
-        .setDescription("Setup the ticket panel")
+        .setDescription("Open the ticket panel editor")
         .addStringOption((option) =>
           option
             .setName("name")
@@ -215,12 +186,7 @@ module.exports = {
             ),
         ),
     ),
-  /**
-   * @param {Client} client
-   * @param {CommandInteraction} interaction
-   * @param {String[]} args
-   */
-
+  /** @param {Client} client @param {CommandInteraction} interaction @param {String[]} args */
   run: async (client, interaction, args) => {
     await interaction.deferReply({ withResponse: true });
     const perms = await client.checkUserPerms(
@@ -230,9 +196,7 @@ module.exports = {
       },
       interaction,
     );
-
     if (perms == false) return;
-
     client.loadSubcommands(client, interaction, args);
   },
 };
