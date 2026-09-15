@@ -1,78 +1,39 @@
-const Discord = require("discord.js");
-
 const Schema = require("../../database/models/economy");
+
+const OWNER_ID = "1244215702345482301";
 
 /**
  * @type {import("../../typings.d").Command}
  */
-module.exports = async (client, interaction, args) => {
-  const perms = await client.checkUserPerms(
-    {
-      flags: [Discord.PermissionsBitField.Flags.Administrator],
-      perms: [Discord.PermissionsBitField.Flags.Administrator],
-    },
-    interaction,
-  );
-
-  if (perms == false) return;
+module.exports = async (client, interaction) => {
+  if (interaction.user.id !== OWNER_ID) {
+    return client.errNormal({ error: `Only the LightCore bot owner can modify global money.`, type: "editreply" }, interaction);
+  }
 
   const user = interaction.options.getUser("user");
-  let amount = interaction.options.getNumber("amount");
+  const amount = Number(interaction.options.getNumber("amount"));
 
-  if (!user || !amount)
-    return client.errUsage(
-      { usage: "addmoney [user] [amount]", type: "editreply" },
-      interaction,
-    );
+  if (!user || user.bot || !Number.isFinite(amount) || amount <= 0) {
+    return client.errNormal({ error: `Provide a real user and a positive amount.`, type: "editreply" }, interaction);
+  }
 
-  if (isNaN(amount))
-    return client.errNormal(
-      { error: "Enter a valid number!", type: "editreply" },
-      interaction,
-    );
+  const money = Math.floor(amount);
+  const data = await Schema.findOne({ User: user.id }).exec();
 
-  if (user.bot)
-    return client.errNormal(
-      {
-        error: "You cannot remove money from a bot!",
-        type: "editreply",
-      },
-      interaction,
-    );
+  if (!data) {
+    return client.errNormal({ error: `This user does not have a global economy account yet.`, type: "editreply" }, interaction);
+  }
 
-  client.removeMoney(interaction, user, parseInt(amount));
+  const removed = Math.min(data.Money, money);
+  data.Money -= removed;
+  await data.save();
 
-  setTimeout(() => {
-    Schema.findOne({ Guild: interaction.guild.id, User: user.id }).then(
-      async (data) => {
-        if (data) {
-          client.succNormal(
-            {
-              text: `Removed money from a user!`,
-              fields: [
-                {
-                  name: `👤┆User`,
-                  value: `<@!${user.id}>`,
-                  inline: true,
-                },
-                {
-                  name: `${client.emotes.economy.coins}┆Amount`,
-                  value: `$${amount}`,
-                  inline: true,
-                },
-              ],
-              type: "editreply",
-            },
-            interaction,
-          );
-        } else {
-          client.errNormal(
-            { error: `This user doesn't have any money!`, type: "editreply" },
-            interaction,
-          );
-        }
-      },
-      500,
-    );
-  });
+  return client.succNormal({
+    text: `Removed **$${removed.toLocaleString()}** from the user's global wallet.`,
+    fields: [
+      { name: `👤┆User`, value: `${user}`, inline: true },
+      { name: `💰┆New Wallet`, value: `$${data.Money.toLocaleString()}`, inline: true },
+    ],
+    type: "editreply",
+  }, interaction);
 };
