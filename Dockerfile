@@ -12,10 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install from package.json so the production manifest is the source of truth.
-# The repository's legacy lockfile predates the LightCore manifest and would
-# otherwise make npm ci reject the intentionally updated dependency set.
-COPY package*.json ./
+# Install directly from the LightCore production manifest.
+# Do not copy the repository's legacy package-lock.json into the build stage;
+# it predates the current manifest and can leave required dependencies such as
+# chalk missing from the resulting image.
+COPY package.json ./
 RUN npm install --omit=dev && npm rebuild canvas --build-from-source
 
 COPY . .
