@@ -10,13 +10,14 @@ module.exports = {
 
     discord: {
         id: process.env.DISCORD_ID,
-        prefix: '.',
+        // Use DEFAULT_PREFIX for a deployment-wide default; guild settings may override it.
+        prefix: process.env.DEFAULT_PREFIX || '.',
         footer: `© LightCore ${new Date().getFullYear()}`,
         botInvite: `https://discord.com/oauth2/authorize?client_id=1516313619476779120&permissions=8&scope=bot%20applications.commands`,
         serverInvite: 'https://discord.gg/Ehmqr5drSz',
     },
 
-    // Public-release defaults. Environment variables can override deployment-specific values.
+    // Public-release defaults and safety limits.
     limits: {
         maxPrefixLength: 5,
         maxTicketCategories: 25,
