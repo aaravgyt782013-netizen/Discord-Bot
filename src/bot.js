@@ -5,10 +5,6 @@ const { Connectors } = require("shoukaku");
 const { Kazagumo } = require("kazagumo");
 const Spotify = require('kazagumo-spotify');
 
-// Discord client
-/**
- * @type {import("./typings.d").Client}
- */
 const client = new Discord.Client({
     allowedMentions: {
         parse: ["users", "roles"],
@@ -61,20 +57,12 @@ client.player = new Kazagumo(
     [
         {
             name: "Lavalink 1",
-            url:
-                (process.env.LAVALINK_HOST ?? "lavalinkv4.serenetia.com") +
-                ":" +
-                (process.env.LAVALINK_PORT ?? 80),
-            auth:
-                process.env.LAVALINK_PASSWORD ?? "https://seretia.link/discord",
+            url: (process.env.LAVALINK_HOST ?? "lavalinkv4.serenetia.com") + ":" + (process.env.LAVALINK_PORT ?? 80),
+            auth: process.env.LAVALINK_PASSWORD ?? "https://seretia.link/discord",
             secure: process.env.LAVALINK_SECURE === "true" ? true : false,
         },
     ],
-    {
-        resume: true,
-        resumeTimeout: 30,
-        reconnectTries: 5,
-    },
+    { resume: true, resumeTimeout: 30, reconnectTries: 5 },
 );
 
 const musicEvents = {
@@ -83,37 +71,19 @@ const musicEvents = {
     playerMoved: require("./music/playerMove"),
     playerClosed: require("./music/playerDisconnect"),
 };
-for (const [name, event] of Object.entries(musicEvents)) {
-    client.player.on(name, event.bind(null, client));
-}
+for (const [name, event] of Object.entries(musicEvents)) client.player.on(name, event.bind(null, client));
 client.player.shoukaku.on("ready", require("./music/ready").bind(null, client));
 client.player.shoukaku.on("error", require("./music/error").bind(null, client));
 
-// Connect to database
 require("./database/connect")();
 
-// Client settings
 client.config = require("./config/bot");
+client.config.discord.prefix = ".";
 client.changelogs = require("./config/changelogs");
 client.emotes = require("./config/emojis.json");
 client.webhooks = require("./config/webhooks.json");
-const webHooksArray = [
-    "startLogs",
-    "shardLogs",
-    "errorLogs",
-    "dmLogs",
-    "voiceLogs",
-    "serverLogs",
-    "serverLogs2",
-    "commandLogs",
-    "consoleLogs",
-    "warnLogs",
-    "voiceErrorLogs",
-    "creditLogs",
-    "evalLogs",
-    "interactionLogs",
-];
-// Check if .env webhook_id and webhook_token are set
+
+const webHooksArray = ["startLogs", "shardLogs", "errorLogs", "dmLogs", "voiceLogs", "serverLogs", "serverLogs2", "commandLogs", "consoleLogs", "warnLogs", "voiceErrorLogs", "creditLogs", "evalLogs", "interactionLogs"];
 if (process.env.WEBHOOK_ID && process.env.WEBHOOK_TOKEN) {
     for (const webhookName of webHooksArray) {
         client.webhooks[webhookName].id = process.env.WEBHOOK_ID;
@@ -125,109 +95,48 @@ client.commands = new Discord.Collection();
 client.playerManager = new Map();
 client.queue = new Map();
 
-// Webhooks
-const consoleLogs = new Discord.WebhookClient({
-    id: client.webhooks.consoleLogs.id,
-    token: client.webhooks.consoleLogs.token,
-});
+const consoleLogs = new Discord.WebhookClient({ id: client.webhooks.consoleLogs.id, token: client.webhooks.consoleLogs.token });
+const warnLogs = new Discord.WebhookClient({ id: client.webhooks.warnLogs.id, token: client.webhooks.warnLogs.token });
 
-const warnLogs = new Discord.WebhookClient({
-    id: client.webhooks.warnLogs.id,
-    token: client.webhooks.warnLogs.token,
-});
-
-// Load handlers
 fs.readdirSync("./src/handlers").forEach((dir) => {
-    fs.readdirSync(`./src/handlers/${dir}`).forEach((handler) => {
-        require(`./handlers/${dir}/${handler}`)(client);
-    });
+    fs.readdirSync(`./src/handlers/${dir}`).forEach((handler) => require(`./handlers/${dir}/${handler}`)(client));
 });
 
 client.login(process.env.DISCORD_TOKEN);
 
 process.on("unhandledRejection", (error) => {
     console.error("Unhandled promise rejection:", error);
-    if (error)
-        if (error.length > 950)
-            error = error.slice(0, 950) + "... view console for details";
-    if (error.stack)
-        if (error.stack.length > 950)
-            error.stack =
-                error.stack.slice(0, 950) + "... view console for details";
-    if (!error.stack) return;
+    if (!error) return;
+    let errorText = error.stack || String(error);
+    if (errorText.length > 950) errorText = errorText.slice(0, 950) + "... view console for details";
     const embed = new Discord.EmbedBuilder()
         .setTitle(`🚨・Unhandled promise rejection`)
         .addFields([
-            {
-                name: "Error",
-                value: error ? Discord.codeBlock(error) : "No error",
-            },
-            {
-                name: "Stack error",
-                value: error.stack
-                    ? Discord.codeBlock(error.stack)
-                    : "No stack error",
-            },
+            { name: "Error", value: Discord.codeBlock(String(error).slice(0, 950)) },
+            { name: "Stack error", value: Discord.codeBlock(errorText) },
         ])
         .setColor(client.config.colors.normal);
-    consoleLogs
-        .send({
-            username: "Bot Logs",
-            embeds: [embed],
-        })
-        .catch(() => {
-            console.log("Error sending unhandledRejection to webhook");
-            console.log(error);
-        });
+    consoleLogs.send({ username: "Bot Logs", embeds: [embed] }).catch(() => {});
 });
 
 process.on("warning", (warn) => {
     console.warn("Warning:", warn);
     const embed = new Discord.EmbedBuilder()
         .setTitle(`🚨・New warning found`)
-        .addFields([
-            {
-                name: `Warn`,
-                value: `\`\`\`${warn}\`\`\``,
-            },
-        ])
+        .addFields([{ name: `Warn`, value: `\`\`\`${String(warn).slice(0, 950)}\`\`\`` }])
         .setColor(client.config.colors.normal);
-    warnLogs
-        .send({
-            username: "Bot Logs",
-            embeds: [embed],
-        })
-        .catch(() => {
-            console.log("Error sending warning to webhook");
-            console.log(warn);
-        });
+    warnLogs.send({ username: "Bot Logs", embeds: [embed] }).catch(() => {});
 });
 
 client.on(Discord.ShardEvents.Error, (error) => {
     console.log(error);
-    if (error)
-        if (error.length > 950)
-            error = error.slice(0, 950) + "... view console for details";
-    if (error.stack)
-        if (error.stack.length > 950)
-            error.stack =
-                error.stack.slice(0, 950) + "... view console for details";
-    if (!error.stack) return;
+    if (!error?.stack) return;
     const embed = new Discord.EmbedBuilder()
         .setTitle(`🚨・A websocket connection encountered an error`)
         .addFields([
-            {
-                name: `Error`,
-                value: `\`\`\`${error}\`\`\``,
-            },
-            {
-                name: `Stack error`,
-                value: `\`\`\`${error.stack}\`\`\``,
-            },
+            { name: `Error`, value: `\`\`\`${String(error).slice(0, 950)}\`\`\`` },
+            { name: `Stack error`, value: `\`\`\`${String(error.stack).slice(0, 950)}\`\`\`` },
         ])
         .setColor(client.config.colors.normal);
-    consoleLogs.send({
-        username: "Bot Logs",
-        embeds: [embed],
-    });
+    consoleLogs.send({ username: "Bot Logs", embeds: [embed] }).catch(() => {});
 });
