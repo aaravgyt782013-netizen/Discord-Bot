@@ -4,266 +4,132 @@ const ticketSchema = require("../../database/models/tickets");
 const ticketChannels = require("../../database/models/ticketChannels");
 const ticketMessageConfig = require("../../database/models/ticketMessage");
 
-/**
- * @type {import("../../typings.d").Command}
- */
 module.exports = async (client, interaction, args) => {
-  let reason = "Not given";
-  if (interaction.options)
-    reason = interaction.options.getString("reason") || "Not given";
+  if (!interaction.guild) return;
 
-  let type = "reply";
-  if (interaction.isCommand()) type = "editreply";
+  const type = interaction.isCommand?.() ? "editreply" : "reply";
+  const selectedId = interaction.ticketCategoryId || interaction.values?.[0] || null;
+  const reason = interaction.options?.getString?.("reason") || "Not given";
 
-  ticketChannels
-    .findOne({
+  try {
+    const existing = await ticketChannels.findOne({
       Guild: interaction.guild.id,
       creator: interaction.user.id,
       resolved: false,
-    })
-    .then(async (data) => {
-      if (data) {
-        if (interaction.isCommand()) {
-          return client.errNormal(
-            {
-              error: "Ticket limit reached. 1/1",
-              type: "ephemeraledit",
-            },
-            interaction,
-          );
-        } else
-          return client.errNormal(
-            {
-              error: "Ticket limit reached. 1/1",
-              type: "ephemeral",
-            },
-            interaction,
-          );
-      } else {
-        ticketSchema
-          .findOne({ Guild: interaction.guild.id })
-          .then(async (TicketData) => {
-            if (TicketData) {
-              const logsChannel = interaction.guild.channels.cache.get(
-                TicketData.Logs,
-              );
-              const ticketCategory = interaction.guild.channels.cache.get(
-                TicketData.Category,
-              );
-              const ticketRole = interaction.guild.roles.cache.get(
-                TicketData.Role,
-              );
-              let role = interaction.guild.roles.cache.find(
-                (r) => r.id === ticketRole.id,
-              );
+    }).lean();
 
-              try {
-                var openTicket =
-                  "Thanks for creating a ticket! \nSupport will be with you shortly \n\n🔒 - Close ticket \n✋ - Claim ticket \n📝 - Save transcript \n🔔 - Send a notification";
-                let ticketMessageData = await ticketMessageConfig.findOne({
-                  Guild: interaction.guild.id,
-                });
-                if (ticketMessageData) {
-                  openTicket = ticketMessageData.openTicket;
-                }
+    if (existing) {
+      return client.errNormal({ error: "Ticket limit reached. 1/1", type }, interaction);
+    }
 
-                const row = new Discord.ActionRowBuilder().addComponents(
-                  new Discord.ButtonBuilder()
-                    .setCustomId("Bot_closeticket")
-                    .setEmoji("🔒")
-                    .setStyle(Discord.ButtonStyle.Primary),
+    const data = await ticketSchema.findOne({ Guild: interaction.guild.id });
+    if (!data) return client.errNormal({ error: "Do the ticket setup first!", type }, interaction);
 
-                  new Discord.ButtonBuilder()
-                    .setCustomId("Bot_claimTicket")
-                    .setEmoji("✋")
-                    .setStyle(Discord.ButtonStyle.Primary),
+    let categoryConfig = null;
+    if (selectedId) {
+      categoryConfig = data.Categories?.find((item) =>
+        item.Enabled !== false && (item._id?.toString() === selectedId || item.Name === selectedId || item.Category === selectedId)
+      );
+    }
+    if (!categoryConfig && data.Categories?.length) {
+      categoryConfig = data.Categories.find((item) => item.Enabled !== false) || data.Categories[0];
+    }
 
-                  new Discord.ButtonBuilder()
-                    .setCustomId("Bot_transcriptTicket")
-                    .setEmoji("📝")
-                    .setStyle(Discord.ButtonStyle.Primary),
+    if (!categoryConfig) {
+      if (!data.Category || !data.Role) return client.errNormal({ error: "No ticket category is configured.", type }, interaction);
+      categoryConfig = {
+        Name: "Support",
+        Category: data.Category,
+        Role: data.Role,
+        Logs: data.Logs,
+        Transcript: data.Logs,
+        Description: "Support ticket",
+        Emoji: "🎫",
+      };
+    }
 
-                  new Discord.ButtonBuilder()
-                    .setCustomId("Bot_noticeTicket")
-                    .setEmoji("🔔")
-                    .setStyle(Discord.ButtonStyle.Primary),
-                );
+    const parent = interaction.guild.channels.cache.get(categoryConfig.Category);
+    const role = interaction.guild.roles.cache.get(categoryConfig.Role);
+    if (!parent || parent.type !== Discord.ChannelType.GuildCategory) {
+      return client.errNormal({ error: `The category for **${categoryConfig.Name}** no longer exists.`, type }, interaction);
+    }
+    if (!role) return client.errNormal({ error: `The support role for **${categoryConfig.Name}** no longer exists.`, type }, interaction);
 
-                client
-                  .embed(
-                    {
-                      title: `${client.emotes.animated.loading}・Progress`,
-                      desc: `Your ticket is being created...`,
-                      type: "ephemeral",
-                    },
-                    interaction,
-                  )
-                  .then((msg) => {
-                    if (TicketData.TicketCount) {
-                      TicketData.TicketCount += 1;
-                      TicketData.save();
-                    } else {
-                      TicketData.TicketCount = 1;
-                      TicketData.save();
-                    }
+    const perms = [
+      Discord.PermissionsBitField.Flags.ViewChannel,
+      Discord.PermissionsBitField.Flags.SendMessages,
+      Discord.PermissionsBitField.Flags.AttachFiles,
+      Discord.PermissionsBitField.Flags.ReadMessageHistory,
+      Discord.PermissionsBitField.Flags.AddReactions,
+    ];
 
-                    if (ticketCategory == undefined) {
-                      return client.errNormal(
-                        {
-                          error: "Do the setup!",
-                          type: type,
-                        },
-                        interaction,
-                      );
-                    } else {
-                      let category = interaction.guild.channels.cache.find(
-                        (c) => c.id === ticketCategory.id,
-                      );
+    const count = (data.TicketCount || 0) + 1;
+    data.TicketCount = count;
+    await data.save();
 
-                      let permsToHave = [
-                        Discord.PermissionsBitField.Flags.AddReactions,
-                        Discord.PermissionsBitField.Flags.SendMessages,
-                        Discord.PermissionsBitField.Flags.ViewChannel,
-                        Discord.PermissionsBitField.Flags.AttachFiles,
-                        Discord.PermissionsBitField.Flags.ReadMessageHistory,
-                      ];
-
-                      var ticketid = String(TicketData.TicketCount).padStart(
-                        4,
-                        0,
-                      );
-
-                      interaction.guild.channels
-                        .create({
-                          name: `ticket-${ticketid}`,
-                          permissionOverwrites: [
-                            {
-                              deny: [
-                                Discord.PermissionsBitField.Flags.ViewChannel,
-                              ],
-                              id: interaction.guild.id,
-                            },
-                            {
-                              allow: permsToHave,
-                              id: interaction.user.id,
-                            },
-                            {
-                              allow: permsToHave,
-                              id: role.id,
-                            },
-                          ],
-                          parent: category.id,
-                        })
-                        .then(async (channel) => {
-                          client.embed(
-                            {
-                              title: `⚙️・System`,
-                              desc: `Ticket has been created`,
-                              fields: [
-                                {
-                                  name: "👤┆Creator",
-                                  value: `${interaction.user}`,
-                                  inline: true,
-                                },
-                                {
-                                  name: "📂┆Channel",
-                                  value: `${channel}`,
-                                  inline: true,
-                                },
-                                {
-                                  name: "⏰┆Created at",
-                                  value: `<t:${(Date.now() / 1000).toFixed(0)}:f>`,
-                                  inline: true,
-                                },
-                              ],
-                              type: type,
-                            },
-                            interaction,
-                          );
-
-                          new ticketChannels({
-                            Guild: interaction.guild.id,
-                            TicketID: ticketid,
-                            channelID: channel.id,
-                            creator: interaction.user.id,
-                            claimed: "None",
-                          }).save();
-
-                          if (logsChannel) {
-                            client.embed(
-                              {
-                                title: `📝・Open ticket`,
-                                desc: `A new ticket has been created`,
-                                fields: [
-                                  {
-                                    name: "👤┆Creator",
-                                    value: `${interaction.user.tag} (${interaction.user.id})`,
-                                    inline: false,
-                                  },
-                                  {
-                                    name: "📂┆Channel",
-                                    value: `${channel.name} is found at ${channel}`,
-                                    inline: false,
-                                  },
-                                  {
-                                    name: "⏰┆Created at",
-                                    value: `<t:${(Date.now() / 1000).toFixed(0)}:F>`,
-                                    inline: false,
-                                  },
-                                ],
-                              },
-                              logsChannel,
-                            );
-                          }
-
-                          await client.embed(
-                            {
-                              desc: openTicket,
-                              fields: [
-                                {
-                                  name: "👤┆Creator",
-                                  value: `${interaction.user}`,
-                                  inline: true,
-                                },
-                                {
-                                  name: "📄┆Subject",
-                                  value: `${reason}`,
-                                  inline: true,
-                                },
-                                {
-                                  name: "⏰┆Created at",
-                                  value: `<t:${(Date.now() / 1000).toFixed(0)}:F>`,
-                                  inline: true,
-                                },
-                              ],
-                              components: [row],
-                              content: `${interaction.user}, ${role}`,
-                            },
-                            channel,
-                          );
-                        });
-                    }
-                  });
-              } catch (err) {
-                client.errNormal(
-                  {
-                    error: "Do the setup!",
-                    type: type,
-                  },
-                  interaction,
-                );
-                console.log(err);
-              }
-            } else {
-              return client.errNormal(
-                {
-                  error: "Do the setup!",
-                  type: type,
-                },
-                interaction,
-              );
-            }
-          });
-      }
+    const ticketId = String(count).padStart(4, "0");
+    const channel = await interaction.guild.channels.create({
+      name: `${categoryConfig.Name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40)}-${ticketId}`,
+      type: Discord.ChannelType.GuildText,
+      parent: parent.id,
+      permissionOverwrites: [
+        { id: interaction.guild.id, deny: [Discord.PermissionsBitField.Flags.ViewChannel] },
+        { id: interaction.user.id, allow: perms },
+        { id: role.id, allow: perms },
+      ],
     });
+
+    await new ticketChannels({
+      Guild: interaction.guild.id,
+      TicketID: count,
+      channelID: channel.id,
+      creator: interaction.user.id,
+      claimed: "None",
+      Category: categoryConfig.Name,
+    }).save();
+
+    const configuredMessage = await ticketMessageConfig.findOne({ Guild: interaction.guild.id }).lean();
+    const openTicket = configuredMessage?.openTicket || `Thanks for creating a ticket!\nSupport will be with you shortly.`;
+
+    const row = new Discord.ActionRowBuilder().addComponents(
+      new Discord.ButtonBuilder().setCustomId("Bot_closeticket").setEmoji("🔒").setStyle(Discord.ButtonStyle.Primary),
+      new Discord.ButtonBuilder().setCustomId("Bot_claimTicket").setEmoji("✋").setStyle(Discord.ButtonStyle.Primary),
+      new Discord.ButtonBuilder().setCustomId("Bot_transcriptTicket").setEmoji("📝").setStyle(Discord.ButtonStyle.Primary),
+      new Discord.ButtonBuilder().setCustomId("Bot_noticeTicket").setEmoji("🔔").setStyle(Discord.ButtonStyle.Primary),
+    );
+
+    await client.embed({
+      title: `${categoryConfig.Emoji || "🎫"}・${categoryConfig.Name}`,
+      desc: openTicket,
+      fields: [
+        { name: "👤┆Creator", value: `${interaction.user}`, inline: true },
+        { name: "📂┆Category", value: categoryConfig.Name, inline: true },
+        { name: "📄┆Subject", value: reason, inline: true },
+        { name: "⏰┆Created", value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false },
+      ],
+      components: [row],
+      content: `${interaction.user}, ${role}`,
+    }, channel);
+
+    const logsChannel = categoryConfig.Logs ? interaction.guild.channels.cache.get(categoryConfig.Logs) : null;
+    if (logsChannel) {
+      await client.embed({
+        title: "📝・Ticket opened",
+        desc: `A new **${categoryConfig.Name}** ticket has been created.`,
+        fields: [
+          { name: "👤┆Creator", value: `${interaction.user.tag} (${interaction.user.id})` },
+          { name: "📂┆Category", value: categoryConfig.Name },
+          { name: "📌┆Channel", value: `${channel}` },
+        ],
+      }, logsChannel).catch(() => {});
+    }
+
+    return client.succNormal({
+      text: `Your **${categoryConfig.Name}** ticket has been created! ${channel}`,
+      type,
+    }, interaction);
+  } catch (error) {
+    console.error("Ticket creation error:", error);
+    return client.errNormal({ error: "I could not create the ticket. Check my permissions and ticket configuration.", type }, interaction);
+  }
 };
