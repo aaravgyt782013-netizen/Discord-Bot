@@ -117,7 +117,38 @@ function makePrefixInteraction(client, message, commandName, subcommand, optionV
   return interaction;
 }
 
+function afkTimestamp(data) {
+  return data?.CreatedAt || data?.createdAt || data?._id?.getTimestamp?.() || new Date();
+}
+
+function afkEmbed(user, data) {
+  return new Discord.EmbedBuilder()
+    .setColor(0x5865f2)
+    .setAuthor({ name: `${user.username} is AFK`, iconURL: user.displayAvatarURL?.({ size: 128 }) || undefined })
+    .setDescription(`${user} is currently away.`)
+    .addFields(
+      { name: "💬 Reason", value: String(data?.Message || "Not specified").slice(0, 1000), inline: false },
+      { name: "🕒 AFK since", value: `<t:${Math.floor(new Date(afkTimestamp(data)).getTime() / 1000)}:R>`, inline: true },
+    )
+    .setTimestamp();
+}
+
 async function executePrefixCommand(client, message, commandName, args) {
+  // AFK supports a simple prefix form: `.afk <reason>` while keeping `/afk set` intact.
+  if (commandName === "afk" && !["set", "help", "list"].includes(args[0]?.toLowerCase())) {
+    const handler = client.prefixCommands?.get("afk set");
+    if (handler) {
+      const interaction = makePrefixInteraction(client, message, "afk", "set", { reason: args.join(" ") || "Not specified" });
+      try {
+        await handler(client, interaction, interaction.options._hoistedOptions);
+      } catch (error) {
+        console.error("Prefix command afk failed:", error);
+        await message.channel.send({ content: "❌ I couldn't set your AFK status. Please try again." }).catch(() => {});
+      }
+      return true;
+    }
+  }
+
   const command = client.commands.get(commandName);
   if (!command) return false;
 
@@ -262,20 +293,29 @@ module.exports = async (client, message) => {
     }).catch(() => {});
   } catch (error) { console.error("Message tracker error:", error); }
 
-  afk.findOneAndDelete({ Guild: guildId, User: userId }).then(async (data) => {
-    if (!data) return;
-    client.simpleEmbed({ desc: `${message.author} is no longer afk!` }, message.channel).then((m) => { if (m) setTimeout(() => m.delete().catch(() => {}), 5000); }).catch(() => {});
-    if (message.member?.displayName?.startsWith(`[AFK] `)) message.member.setNickname(message.member.displayName.replace(`[AFK] `, ``)).catch(() => {});
-  }).catch(() => {});
+  const afkData = await afk.findOneAndDelete({ Guild: guildId, User: userId }).exec().catch(() => null);
+  if (afkData) {
+    const since = afkTimestamp(afkData);
+    const welcome = new Discord.EmbedBuilder()
+      .setColor(0x57f287)
+      .setAuthor({ name: "Welcome back!", iconURL: message.author.displayAvatarURL?.({ size: 128 }) || undefined })
+      .setDescription(`${message.author}, your AFK status has been removed.`)
+      .addFields(
+        { name: "💬 Previous reason", value: String(afkData.Message || "Not specified").slice(0, 1000), inline: false },
+        { name: "🕒 You were AFK", value: `<t:${Math.floor(new Date(since).getTime() / 1000)}:R>`, inline: true },
+      )
+      .setTimestamp();
+    await message.channel.send({ embeds: [welcome] }).then((m) => setTimeout(() => m.delete().catch(() => {}), 7000)).catch(() => {});
+    if (message.member?.displayName?.startsWith(`[AFK] `)) await message.member.setNickname(message.member.displayName.replace(`[AFK] `, ``)).catch(() => {});
+  }
 
   if (!message.content.includes("@here") && !message.content.includes("@everyone") && message.mentions.users.size > 0) {
-    afk.find({ Guild: guildId, User: { $in: [...message.mentions.users.keys()] } }).lean().exec().then((afkUsers) => {
-      if (!afkUsers?.length) return;
-      for (const afkUser of afkUsers) {
-        const user = message.mentions.users.get(afkUser.User);
-        if (user) client.simpleEmbed({ desc: `${user} is currently afk! **Reason:** ${afkUser.Message}` }, message.channel).catch(() => {});
-      }
-    }).catch(() => {});
+    const mentionedIds = [...message.mentions.users.keys()];
+    const afkUsers = await afk.find({ Guild: guildId, User: { $in: mentionedIds } }).lean().exec().catch(() => []);
+    for (const afkUser of afkUsers || []) {
+      const user = message.mentions.users.get(afkUser.User);
+      if (user) await message.channel.send({ embeds: [afkEmbed(user, afkUser)] }).catch(() => {});
+    }
   }
 
   chatBotSchema.findOne({ Guild: guildId }).lean().cache("60 seconds").exec().then(async (data) => {
@@ -318,8 +358,6 @@ module.exports = async (client, message) => {
     return client.embed({ title: "Hi, I'm LightCore", desc: `Use **${prefix}** followed by a command, or use Discord slash commands.`, components: [row] }, message.channel).catch(() => {});
   }
 
-  // Built-in slash commands are also exposed as prefix commands. The existing
-  // command modules and subcommand loader are reused, so there is no duplicate implementation.
   if (await executePrefixCommand(client, message, command, args)) return;
 
   const cmd = await Commands.findOne({ Guild: guildId, Name: command }).lean().cache("60 seconds").exec();
