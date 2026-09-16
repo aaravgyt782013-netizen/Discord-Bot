@@ -1,0 +1,34 @@
+const Schema = require("../../database/models/economy");
+
+const OWNER_ID = "1244215702345482301";
+
+/**
+ * @type {import("../../typings.d").Command}
+ */
+module.exports = async (client, interaction) => {
+  if (interaction.user.id !== OWNER_ID) {
+    return client.errNormal({ error: "Only the LightCore bot owner can set global money.", type: "editreply" }, interaction);
+  }
+
+  const user = interaction.options.getUser("user");
+  const amount = Number(interaction.options.getNumber("amount"));
+  if (!user || user.bot || !Number.isFinite(amount) || amount < 0) {
+    return client.errNormal({ error: "Provide a real user and a non-negative amount.", type: "editreply" }, interaction);
+  }
+
+  const money = Math.floor(amount);
+  const data = await Schema.findOneAndUpdate(
+    { User: user.id },
+    { $set: { Money: money }, $setOnInsert: { Bank: 0 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  ).exec();
+
+  return client.succNormal({
+    text: `Set the user's global wallet to **$${money.toLocaleString()}**.`,
+    fields: [
+      { name: "👤┆User", value: `${user}`, inline: true },
+      { name: "💰┆Wallet", value: `$${data.Money.toLocaleString()}`, inline: true },
+    ],
+    type: "editreply",
+  }, interaction);
+};
