@@ -30,7 +30,7 @@ const PREFIX_ONLY_ALIASES = {
     economy: {
         balance: ["bal", "money"], leaderboard: ["lb", "rich"], profile: ["prof"], daily: ["day"],
         hourly: ["hour"], weekly: ["week"], monthly: ["month"], yearly: ["year"], withdraw: ["with"],
-        deposit: ["dep"], addmoney: ["givemoney"],
+        deposit: ["dep"], addmoney: ["givemoney"], blackjack: ["bj"], coinflip: ["cf"],
     },
     music: {
         playing: ["nowplaying", "np", "now"], queue: ["q"], pause: ["pa"], resume: ["unpause"],
@@ -131,8 +131,6 @@ module.exports = (client) => {
         for (const [name, options] of Object.entries(definitions)) {
             const handler = client.prefixCommands.get(name);
             if (!handler) continue;
-            // Do not replace a real slash command with a prefix adapter. This is important
-            // for commands that intentionally support both invocation styles.
             if (client.commands.has(name)) continue;
             const adapter = {
                 data: { name, options },
