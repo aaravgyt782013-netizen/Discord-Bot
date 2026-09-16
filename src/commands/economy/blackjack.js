@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { getAccount, addCash } = require('../../utils/economyManager');
+const Schema = require('../../database/models/economy');
 
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -29,6 +29,19 @@ function fmtHand(hand) {
     return hand.map(c => `${c.rank}${c.suit}`).join(' ');
 }
 
+async function getBalance(userId) {
+    const data = await Schema.findOne({ User: userId }).lean().exec();
+    return data?.Money ?? 0;
+}
+
+async function changeBalance(userId, amount) {
+    return Schema.findOneAndUpdate(
+        { User: userId },
+        { $inc: { Money: amount }, $setOnInsert: { Bank: 0 } },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).exec();
+}
+
 module.exports = {
     name: 'blackjack',
     aliases: ['bj'],
@@ -37,8 +50,8 @@ module.exports = {
         const amount = parseInt(args[0], 10);
         if (!amount || amount <= 0) return message.reply('Usage: `.blackjack <amount>`');
 
-        const acc = await getAccount(message.author.id, message.guild.id);
-        if (acc.cash < amount) return message.reply("You don't have enough cash for that bet.");
+        const balance = await getBalance(message.author.id);
+        if (balance < amount) return message.reply("You don't have enough cash for that bet.");
 
         const deck = newDeck();
         const player = [deck.pop(), deck.pop()];
@@ -63,7 +76,7 @@ module.exports = {
 
         if (handValue(player) === 21) {
             const winnings = Math.floor(amount * 1.5);
-            await addCash(message.author.id, message.guild.id, winnings);
+            await changeBalance(message.author.id, winnings);
             return message.reply({ embeds: [buildEmbed(true, `Blackjack! You won ${winnings.toLocaleString()} coins!`)] });
         }
 
@@ -80,7 +93,7 @@ module.exports = {
             else if (pVal === dVal) { winnings = 0; text = "Push — it's a tie, bet returned."; }
             else { winnings = -amount; text = `Dealer wins. You lost ${amount.toLocaleString()} coins.`; }
 
-            if (winnings !== 0) await addCash(message.author.id, message.guild.id, winnings);
+            if (winnings !== 0) await changeBalance(message.author.id, winnings);
             await sent.edit({ embeds: [buildEmbed(true, text)], components: [buildRow(true)] });
         };
 
@@ -102,7 +115,6 @@ module.exports = {
 
         collector.on('end', async (collected) => {
             if (collected.size === 0) {
-                // Timed out with no action — treat as a stand
                 while (handValue(dealer) < 17) dealer.push(deck.pop());
                 await finish(handValue(dealer) > 21 ? 'dealer_bust' : 'compare');
             }
