@@ -27,10 +27,7 @@ module.exports = async (client, interaction, args) => {
     );
   }
 
-  Schema.findOne({
-    Guild: interaction.guild.id,
-    User: interaction.user.id,
-  }).then(async (data) => {
+  Schema.findOne({ User: interaction.user.id }).then(async (data) => {
     if (data) {
       if (data.Money < parseInt(amount))
         return client.errNormal(
