@@ -47,15 +47,44 @@ async function ensureRecord(guildId, userId) {
   ).exec();
 }
 
+function getUserBoost(config, userId) {
+  const boost = Number(config.UserXPBoosts?.get?.(userId) ?? 0);
+  return Number.isFinite(boost) && boost >= 0.1 ? boost : 0;
+}
+
+function effectiveBoost(config, userId) {
+  return getUserBoost(config, userId) || Number(config.XPBoost) || 1;
+}
+
+async function setXPBoost(guildId, userId, multiplier) {
+  const config = await getConfig(guildId);
+  const boost = Number(multiplier);
+  if (!Number.isFinite(boost) || boost < 0.1 || boost > 10) throw new RangeError("XP boost must be between 0.1x and 10x.");
+
+  if (userId) config.UserXPBoosts.set(userId, boost);
+  else config.XPBoost = boost;
+  await config.save();
+  return config;
+}
+
+async function clearXPBoost(guildId, userId) {
+  const config = await getConfig(guildId);
+  if (userId) config.UserXPBoosts.delete(userId);
+  else config.XPBoost = 1;
+  await config.save();
+  return config;
+}
+
 async function applyMilestoneRoles(guild, userId, newLevel) {
   const member = await guild.members.fetch(userId).catch(() => null);
-  if (!member) return;
+  if (!member) return [];
 
   const rewards = await levelRewards.find({ Guild: guild.id, Level: { $lte: newLevel } }).sort({ Level: 1 }).lean().exec();
-  const roleIds = rewards.map((reward) => reward.Role).filter(Boolean);
-  if (!roleIds.length) return;
+  const roleIds = [...new Set(rewards.map((reward) => reward.Role).filter(Boolean))];
+  if (!roleIds.length) return [];
 
-  await member.roles.add([...new Set(roleIds)], `Level milestone reward: level ${newLevel}`).catch(() => {});
+  await member.roles.add(roleIds, `Level milestone reward: level ${newLevel}`).catch(() => {});
+  return roleIds;
 }
 
 async function awardLevelCoins(userId, amount) {
@@ -67,6 +96,23 @@ async function awardLevelCoins(userId, amount) {
   ).exec();
 }
 
+function renderLevelUpMessage(template, user, guild, record, config, reward) {
+  const progress = progressFor(record, config);
+  const values = {
+    "{user.mention}": `<@${user.id}>`,
+    "{user.username}": user.username,
+    "{user.name}": user.globalName || user.username,
+    "{user.id}": user.id,
+    "{user.level}": String(record.Level),
+    "{user.xp}": String(Math.max(0, record.XP - progress.current)),
+    "{user.total_xp}": String(record.XP),
+    "{server}": guild.name,
+    "{reward}": reward > 0 ? `+${reward.toLocaleString()} coins` : "",
+  };
+
+  return Object.entries(values).reduce((text, [tag, value]) => text.split(tag).join(value), template || "{user.mention} reached **Level {user.level}**! GG!");
+}
+
 async function announceLevelUp(guild, userId, level, record, config, reward) {
   if (!config.Announcements) return;
   const channel = config.LevelUpChannel
@@ -75,19 +121,23 @@ async function announceLevelUp(guild, userId, level, record, config, reward) {
   const target = channel || guild.systemChannel;
   if (!target || !target.isTextBased()) return;
 
+  const user = await guild.client.users.fetch(userId).catch(() => guild.client.users.cache.get(userId));
+  if (!user) return;
+
+  const content = renderLevelUpMessage(config.LevelUpMessage, user, guild, record, config, reward);
   const progress = progressFor(record, config);
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("✨ Level Up!")
-    .setDescription(`<@${userId}> reached **Level ${level}**!`)
+    .setDescription(content)
     .addFields(
+      { name: "Level", value: `**${level}**`, inline: true },
       { name: "XP", value: `**${record.XP.toLocaleString()} XP**`, inline: true },
-      { name: "Progress", value: `${progressBar(progress.percent)} ${progress.percent}%`, inline: true },
+      { name: "Progress", value: `${progressBar(progress.percent)} ${progress.percent}%`, inline: false },
     )
-    .setFooter({ text: reward > 0 ? `+${reward.toLocaleString()} coins • Keep going!` : "Keep going!" })
     .setTimestamp();
 
-  await target.send({ content: `<@${userId}>`, embeds: [embed] }).catch(() => {});
+  await target.send({ embeds: [embed] }).catch(() => {});
 }
 
 async function addMessage(guild, userId) {
@@ -112,7 +162,7 @@ async function addMessage(guild, userId) {
 
   record.MessageCount = 0;
   const rawXP = Math.floor(Math.random() * (config.MaxXP - config.MinXP + 1)) + config.MinXP;
-  const grantedXP = Math.max(1, Math.round(rawXP * config.XPMultiplier));
+  const grantedXP = Math.max(1, Math.round(rawXP * config.XPMultiplier * effectiveBoost(config, userId)));
   const oldLevel = record.Level;
   record.XP += grantedXP;
   record.Level = levelFor(record.XP, config.XPMultiplier);
@@ -143,6 +193,15 @@ async function getLeaderboard(guildId, limit = 10) {
   return { config, records };
 }
 
+async function getGlobalLeaderboard(limit = 10) {
+  const records = await leveling.aggregate([
+    { $group: { _id: "$User", XP: { $sum: "$XP" }, Level: { $max: "$Level" }, Servers: { $sum: 1 } } },
+    { $sort: { XP: -1, Level: -1 } },
+    { $limit: limit },
+  ]).exec();
+  return { records };
+}
+
 function clearCooldowns() {
   const cutoff = Date.now() - COOLDOWN_MS * 4;
   for (const [key, time] of xpCooldown) if (time < cutoff) xpCooldown.delete(key);
@@ -159,10 +218,12 @@ const service = {
   addMessage,
   getRank,
   getLeaderboard,
+  getGlobalLeaderboard,
+  getUserBoost,
+  setXPBoost,
+  clearXPBoost,
 };
 
-// bot.js loads every file in src/handlers/<folder> as a client initializer.
-// Keep the service API available while also satisfying that handler contract.
 async function levelingServiceHandler(client) {
   client.levelingService = service;
 }
