@@ -93,7 +93,10 @@ manager.on("shardCreate", (shard) => {
     shard.on("shardReconnecting", () => safeWebhookSend(shardLogs, { username: "LightCore Logs", embeds: [new Discord.EmbedBuilder().setTitle("🔄・Shard reconnecting").setDescription(`Shard **${shardLabel}** is reconnecting.`).setColor(config.colors.normal).setTimestamp()] }));
 });
 
-manager.spawn().catch((error) => {
+// This bot initializes a large command/event stack before the Discord client can
+// report ready. Keep a generous startup window so slow/free hosts do not falsely
+// mark a healthy shard as failed during cold starts.
+manager.spawn({ amount: "auto", delay: 5500, timeout: 120000 }).catch((error) => {
     console.error("Failed to spawn Discord shards:", error);
     safeWebhookSend(consoleLogs, { username: "LightCore Logs", embeds: [new Discord.EmbedBuilder().setTitle("🚨・Shard manager failed").setDescription(`\`\`\`${String(error).slice(0, 3800)}\`\`\``).setColor(config.colors.error)] });
 });
