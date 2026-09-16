@@ -5,14 +5,13 @@ const itemSchema = require("../../database/models/economyItems");
 
 module.exports = async (client) => {
   client.addMoney = async function (interaction, user, amount) {
-    Schema.findOne({ Guild: interaction.guild.id, User: user.id }).then(
+    Schema.findOne({ User: user.id }).then(
       async (data) => {
         if (data) {
           data.Money += amount;
           data.save();
         } else {
           new Schema({
-            Guild: interaction.guild.id,
             User: user.id,
             Money: amount,
             Bank: 0,
@@ -23,7 +22,7 @@ module.exports = async (client) => {
   };
 
   client.removeMoney = async function (interaction, user, amount) {
-    Schema.findOne({ Guild: interaction.guild.id, User: user.id }).then(
+    Schema.findOne({ User: user.id }).then(
       async (data) => {
         if (data) {
           data.Money -= amount;
