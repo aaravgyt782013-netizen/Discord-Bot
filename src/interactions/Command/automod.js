@@ -15,6 +15,8 @@ module.exports = {
     .addSubcommand((subcommand) => subcommand.setName("linkschannel").setDescription("Add a channel that is allowed to send links").addStringOption((option) => option.setName("type").setDescription("What do you want to do with the channel?").setRequired(true).addChoices({ name: "Add", value: "add" }, { name: "Remove", value: "remove" })).addChannelOption((option) => option.setName("channel").setDescription("Select a channel").setRequired(true).addChannelTypes(ChannelType.GuildText)))
     .addSubcommandGroup((group) => group.setName("blacklist").setDescription("Manage the blacklist").addSubcommand((subcommand) => subcommand.setName("display").setDescription("Show the whole blacklist")).addSubcommand((subcommand) => subcommand.setName("add").setDescription("Add a word to the blacklist").addStringOption((option) => option.setName("word").setDescription("The word for the blacklist").setRequired(true))).addSubcommand((subcommand) => subcommand.setName("remove").setDescription("Remove a word from the blacklist").addStringOption((option) => option.setName("word").setDescription("The word for the blacklist").setRequired(true)))),
   run: async (client, interaction, args) => {
+    // Part2 security handler owns this subcommand so it can share the same logic with prefix mode.
+    if (interaction.options.getSubcommand?.() === "config") return;
     await interaction.deferReply({ withResponse: true });
     const perms = await client.checkUserPerms({ flags: [Discord.PermissionsBitField.Flags.ManageMessages], perms: [Discord.PermissionsBitField.Flags.ManageMessages] }, interaction);
     if (perms == false) return;
