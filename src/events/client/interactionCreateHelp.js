@@ -10,7 +10,6 @@ const CATEGORY_ORDER = [
   "utility",
   "automation",
   "admin",
-  "gambling",
   "other",
 ];
 
@@ -24,20 +23,12 @@ const LABELS = {
   utility: ["Utility", "🔧"],
   automation: ["Automation", "🤖"],
   admin: ["Admin", "🛠️"],
-  gambling: ["Gambling", "🎰"],
   other: ["Other", "📦"],
 };
 
-// Kept as a static help-only list; command implementations are not inspected or changed here.
-const GAMBLING_COMMANDS = [
-  { name: "slots", description: "Bet coins on the slot machine" },
-  { name: "coinflip", description: "Bet coins on a coinflip" },
-  { name: "blackjack", description: "Play blackjack against the bot" },
-];
-
 const ADMIN_COMMANDS = new Set([
-  "addmoney", "removemoney", "clear", "additem", "deleteitem", "config", "reward", "rewards",
-  "createreward", "deletereward", "setxp", "setlevel",
+  "addmoney", "removemoney", "setmoney", "clear", "additem", "deleteitem", "config", "reward", "rewards",
+  "createreward", "deletereward", "setxp", "setlevel", "xpboost",
 ]);
 
 function cleanName(name) {
@@ -48,7 +39,6 @@ function categoryForName(name, parent = "") {
   const value = cleanName(name);
   const context = `${cleanName(parent)} ${value}`;
 
-  // Admin/configuration commands must be classified before generic leveling/economy rules.
   if (
     ADMIN_COMMANDS.has(value) ||
     /^(levels?)\s+(config|reward|rewards|deletereward|setxp|setlevel|createreward)$/.test(context)
@@ -85,11 +75,7 @@ function flattenSlashCommand(data) {
       const nested = sub.options.filter((option) => option.type === 1);
       if (nested.length) {
         for (const child of nested) {
-          result.push({
-            name: `${root} ${cleanName(sub.name)} ${cleanName(child.name)}`,
-            description: child.description || "No description declared in the command file.",
-            parent: root,
-          });
+          result.push({ name: `${root} ${cleanName(sub.name)} ${cleanName(child.name)}`, description: child.description || "No description declared in the command file.", parent: root });
         }
       } else {
         result.push({ name: `${root} ${cleanName(sub.name)}`, description: sub.description || "No description declared in the command file.", parent: root });
@@ -102,11 +88,12 @@ function flattenSlashCommand(data) {
   return result;
 }
 
-function loadedCommands(client) {
+function loadedCommands(client, mode) {
   const seen = new Set();
   const result = [];
 
   for (const command of client.commands?.values?.() || []) {
+    if (mode === "slash" && command?.prefixOnly) continue;
     const data = normalizeCommandData(command);
     if (!data) continue;
     for (const entry of flattenSlashCommand(data)) {
@@ -119,23 +106,13 @@ function loadedCommands(client) {
 }
 
 function buildCommandLines(client, category, mode, prefix) {
-  const entries = loadedCommands(client)
+  return loadedCommands(client, mode)
     .filter((entry) => categoryForName(entry.name, entry.parent) === category)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const lines = entries.map((entry) => {
-    const trigger = mode === "prefix" ? `${prefix}${entry.name}` : `/${entry.name}`;
-    return `\`${trigger}\` — ${entry.description}`;
-  });
-
-  if (category === "gambling") {
-    for (const entry of GAMBLING_COMMANDS) {
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((entry) => {
       const trigger = mode === "prefix" ? `${prefix}${entry.name}` : `/${entry.name}`;
-      lines.push(`\`${trigger}\` — ${entry.description}`);
-    }
-  }
-
-  return lines;
+      return `\`${trigger}\` — ${entry.description}`;
+    });
 }
 
 function buildEmbed(client, mode, category) {
@@ -158,11 +135,7 @@ function buildEmbed(client, mode, category) {
   }
   if (chunk) chunks.push(chunk);
 
-  const fields = chunks.slice(0, 24).map((value, index) => ({
-    name: chunks.length > 1 ? `Commands ${index + 1}` : "Commands",
-    value,
-    inline: false,
-  }));
+  const fields = chunks.slice(0, 24).map((value, index) => ({ name: chunks.length > 1 ? `Commands ${index + 1}` : "Commands", value, inline: false }));
   if (!fields.length) fields.push({ name: "Commands", value: "No commands are currently loaded in this category.", inline: false });
 
   return new Discord.EmbedBuilder()
@@ -180,9 +153,7 @@ function buildMenu(mode, owner) {
       .setPlaceholder(mode === "prefix" ? "Choose a prefix help category" : "Choose a LightCore help category")
       .addOptions(CATEGORY_ORDER.map((category) => ({
         label: LABELS[category][0],
-        description: mode === "prefix"
-          ? `View ${LABELS[category][0].toLowerCase()} prefix commands`
-          : `View ${LABELS[category][0].toLowerCase()} slash commands`,
+        description: mode === "prefix" ? `View ${LABELS[category][0].toLowerCase()} prefix commands` : `View ${LABELS[category][0].toLowerCase()} slash commands`,
         emoji: LABELS[category][1],
         value: category,
       })));
