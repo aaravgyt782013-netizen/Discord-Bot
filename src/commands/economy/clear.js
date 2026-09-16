@@ -78,3 +78,5 @@ module.exports = async (client, interaction, args) => {
     );
   }
 };
+
+module.exports.description = "Owner-only: resets the global economy wallets.";
