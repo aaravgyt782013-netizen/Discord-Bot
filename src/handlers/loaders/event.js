@@ -7,6 +7,11 @@ const Discord = require("discord.js");
  * @param {import('../../typings.d').Client} client
  */
 module.exports = (client) => {
+    // LightCore intentionally splits interaction handling across focused modules.
+    // Node's default EventEmitter limit is 10 listeners, so raise it to a sane
+    // project-specific limit instead of emitting a misleading warning.
+    client.setMaxListeners(Math.max(client.getMaxListeners(), 25));
+
     if (client.shard.ids[0] === 0) console.log(`\u001b[0m`);
     if (client.shard.ids[0] === 0)
         console.log(
