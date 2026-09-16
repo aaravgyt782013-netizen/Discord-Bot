@@ -7,7 +7,8 @@ module.exports = {
     .setDescription("View and manage the per-server leveling system")
     .addSubcommand((sub) => sub.setName("help").setDescription("Show leveling commands"))
     .addSubcommand((sub) => sub.setName("rank").setDescription("View a user's server rank").addUserOption((o) => o.setName("user").setDescription("User to inspect")))
-    .addSubcommand((sub) => sub.setName("leaderboard").setDescription("View the server XP leaderboard"))
+    .addSubcommand((sub) => sub.setName("leaderboard").setDescription("View the server or global XP leaderboard")
+      .addStringOption((o) => o.setName("scope").setDescription("Leaderboard scope").addChoices({ name: "Server", value: "server" }, { name: "Global", value: "global" })))
     .addSubcommand((sub) => sub.setName("config").setDescription("Configure server leveling")
       .addIntegerOption((o) => o.setName("threshold").setDescription("Messages required per XP grant").setMinValue(1).setMaxValue(100))
       .addIntegerOption((o) => o.setName("min_xp").setDescription("Minimum random XP per grant").setMinValue(1).setMaxValue(1000))
@@ -15,7 +16,8 @@ module.exports = {
       .addNumberOption((o) => o.setName("multiplier").setDescription("XP curve multiplier").setMinValue(0.1).setMaxValue(10))
       .addChannelOption((o) => o.setName("channel").setDescription("Level-up announcement channel").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
       .addBooleanOption((o) => o.setName("announcements").setDescription("Enable level-up announcements"))
-      .addIntegerOption((o) => o.setName("coin_reward").setDescription("Global coins awarded per level").setMinValue(0).setMaxValue(1000000)))
+      .addIntegerOption((o) => o.setName("coin_reward").setDescription("Global coins awarded per level").setMinValue(0).setMaxValue(1000000))
+      .addStringOption((o) => o.setName("message").setDescription("Custom level-up message/template (max 1000 chars)").setMaxLength(1000)))
     .addSubcommand((sub) => sub.setName("reward").setDescription("Assign a stacking level milestone role")
       .addIntegerOption((o) => o.setName("level").setDescription("Milestone level").setRequired(true).setMinValue(1))
       .addRoleOption((o) => o.setName("role").setDescription("Role awarded at this level").setRequired(true)))
@@ -33,7 +35,7 @@ module.exports = {
     if (!interaction.guild) return interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
     const sub = interaction.options.getSubcommand();
     if (sub === "rank") return levelingCommand.rank(interaction, interaction.options.getUser("user") || interaction.user);
-    if (sub === "leaderboard") return levelingCommand.leaderboard(interaction);
+    if (sub === "leaderboard") return levelingCommand.leaderboard(interaction, interaction.options.getString("scope") || "server");
     if (sub === "config") return levelingCommand.configure(interaction);
     if (sub === "reward") return levelingCommand.addReward(interaction);
     if (sub === "deletereward") return levelingCommand.deleteReward(interaction);
