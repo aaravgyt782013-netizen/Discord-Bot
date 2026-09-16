@@ -85,6 +85,7 @@ if (missingEnvironment.length) {
     process.exitCode = 1;
 }
 
+let handlerLoadFailed = false;
 fs.readdirSync("./src/handlers").forEach((dir) => {
     const handlerPath = `./handlers/${dir}`;
     const fullPath = `./src/handlers/${dir}`;
@@ -98,8 +99,8 @@ fs.readdirSync("./src/handlers").forEach((dir) => {
             }
             initializer(client);
         } catch (error) {
+            handlerLoadFailed = true;
             console.error(`LightCore failed to initialize handler ${source}:`, error);
-            process.exitCode = 1;
         }
     });
 });
@@ -110,7 +111,7 @@ client.once(Discord.Events.ClientReady, (readyClient) => {
     console.log(`Application ID: ${readyClient.user.id}`);
 });
 
-if (!missingEnvironment.length) {
+if (!missingEnvironment.length && !handlerLoadFailed) {
     client.login(process.env.DISCORD_TOKEN).catch((error) => {
         console.error("LightCore failed to login to Discord:", error);
         safeLog(consoleLogs, {
@@ -119,6 +120,8 @@ if (!missingEnvironment.length) {
         });
         process.exitCode = 1;
     });
+} else if (handlerLoadFailed) {
+    console.error("LightCore startup aborted because one or more handlers failed to initialize.");
 }
 
 process.on("unhandledRejection", (error) => {
