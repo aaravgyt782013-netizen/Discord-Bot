@@ -1,8 +1,4 @@
-const { CommandInteraction, Client } = require("discord.js");
-const { SlashCommandBuilder } = require("discord.js");
-const Discord = require("discord.js");
-
-const Schema = require("../../database/models/music");
+const { CommandInteraction, Client, SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -11,27 +7,24 @@ module.exports = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("help")
-        .setDescription("Get information about the afk category commands"),
+        .setDescription("Get information about the AFK commands"),
     )
     .addSubcommand((subcommand) =>
       subcommand
         .setName("set")
         .setDescription("Put yourself AFK")
-        .addStringOption((option) =>
-          option.setName("reason").setDescription("The reason for your AFK"),
-        ),
+        .addStringOption((option) => option.setName("reason").setDescription("The reason for your AFK")),
     )
     .addSubcommand((subcommand) =>
-      subcommand.setName("list").setDescription("Show all afk users"),
+      subcommand.setName("list").setDescription("Show all AFK users"),
     ),
   /**
    * @param {Client} client
    * @param {CommandInteraction} interaction
    * @param {String[]} args
    */
-
   run: async (client, interaction, args) => {
     await interaction.deferReply({ withResponse: true });
-    client.loadSubcommands(client, interaction, args);
+    return client.loadSubcommands(client, interaction, args);
   },
 };
