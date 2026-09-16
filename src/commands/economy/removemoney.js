@@ -18,18 +18,18 @@ module.exports = async (client, interaction) => {
   }
 
   const money = Math.floor(amount);
-  const data = await Schema.findOne({ User: user.id }).exec();
+  const data = await Schema.findOneAndUpdate(
+    { User: user.id, Money: { $gte: money } },
+    { $inc: { Money: -money } },
+    { new: true },
+  ).exec();
 
   if (!data) {
-    return client.errNormal({ error: `This user does not have a global economy account yet.`, type: "editreply" }, interaction);
+    return client.errNormal({ error: `The user does not have enough global wallet balance for that removal.`, type: "editreply" }, interaction);
   }
 
-  const removed = Math.min(data.Money, money);
-  data.Money -= removed;
-  await data.save();
-
   return client.succNormal({
-    text: `Removed **$${removed.toLocaleString()}** from the user's global wallet.`,
+    text: `Removed **$${money.toLocaleString()}** from the user's global wallet.`,
     fields: [
       { name: `👤┆User`, value: `${user}`, inline: true },
       { name: `💰┆New Wallet`, value: `$${data.Money.toLocaleString()}`, inline: true },
