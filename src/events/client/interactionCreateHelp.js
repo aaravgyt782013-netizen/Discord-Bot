@@ -28,8 +28,7 @@ const LABELS = {
   other: ["Other", "📦"],
 };
 
-// Gambling entries are listed manually so the help system never needs to
-// inspect or modify their command implementations.
+// Kept as a static help-only list; command implementations are not inspected or changed here.
 const GAMBLING_COMMANDS = [
   { name: "slots", description: "Bet coins on the slot machine" },
   { name: "coinflip", description: "Bet coins on a coinflip" },
@@ -49,7 +48,13 @@ function categoryForName(name, parent = "") {
   const value = cleanName(name);
   const context = `${cleanName(parent)} ${value}`;
 
-  if (/level|xp|rank|leaderboard|reward/.test(context)) return "leveling";
+  // Admin/configuration commands must be classified before generic leveling/economy rules.
+  if (
+    ADMIN_COMMANDS.has(value) ||
+    /^(levels?)\s+(config|reward|rewards|deletereward|setxp|setlevel|createreward)$/.test(context)
+  ) return "admin";
+
+  if (/level|xp|rank|leaderboard/.test(context)) return "leveling";
   if (/economy|balance|daily|hourly|weekly|monthly|yearly|work|beg|deposit|withdraw|pay|shop|buy|hunt|battle|fish|pet|quest|boss|present|profile|rob|crime/.test(context)) return "economy";
   if (/play|music|song|queue|skip|pause|resume|stop|volume|shuffle|loop|lyrics|radio|bassboost|playing|seek|previous/.test(context)) return "music";
   if (/ticket|transcript/.test(context)) return "tickets";
@@ -57,7 +62,6 @@ function categoryForName(name, parent = "") {
   if (/game|games|trivia|rps|guess|word|8ball|fasttype|snake|wouldyou|press|fun|meme|joke|fact|rate|roast|hug|rickroll|ascii/.test(context)) return "fun";
   if (/auto|logging|logs|reaction|custom|reminder|starboard|giveaway|suggestion|message|sticky|announcement/.test(context)) return "automation";
   if (/help|invite|avatar|userinfo|serverinfo|roleinfo|channelinfo|ping|uptime|botinfo|embed|say|translate|weather|afk|birthdays|notepad|images|search|tools|voice|prefix|dcredits/.test(context)) return "utility";
-  if (ADMIN_COMMANDS.has(value)) return "admin";
   return "other";
 }
 
