@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const Schema = new mongoose.Schema({
-  Guild: { type: String, required: true, unique: true, index: true },
+  Guild: { type: String, required: true, index: true },
   Levels: { type: Boolean, default: false },
   Beta: { type: Boolean, default: false },
   AntiAlt: { type: Boolean, default: false },
