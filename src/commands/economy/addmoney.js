@@ -33,3 +33,5 @@ module.exports = async (client, interaction) => {
     type: "editreply",
   }, interaction);
 };
+
+module.exports.description = "Owner-only: adds money to a user's global wallet.";
