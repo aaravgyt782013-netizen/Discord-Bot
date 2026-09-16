@@ -26,28 +26,12 @@ const LABELS = {
   other: ["Other", "📦"],
 };
 
-// These are intentionally not rendered by help. They are gambling/casino
-// commands and are kept out of the user-facing command directory.
-const RESTRICTED_GAMBLING = new Set([
-  "slots",
-  "coinflip",
-  "blackjack",
-  "crash",
-  "roulette",
-]);
+// Gambling/casino commands are intentionally not rendered in the help menu.
+const RESTRICTED_GAMBLING = new Set(["slots", "coinflip", "blackjack", "crash", "roulette"]);
 
 const ADMIN_COMMANDS = new Set([
-  "addmoney",
-  "removemoney",
-  "clear",
-  "additem",
-  "deleteitem",
-  "config",
-  "reward",
-  "createreward",
-  "deletereward",
-  "setxp",
-  "setlevel",
+  "addmoney", "removemoney", "clear", "additem", "deleteitem", "config", "reward", "rewards",
+  "createreward", "deletereward", "setxp", "setlevel",
 ]);
 
 function cleanName(name) {
@@ -64,7 +48,8 @@ function categoryForName(name, parent = "") {
   const context = `${cleanName(parent)} ${value}`;
 
   if (isRestricted(value) || isRestricted(parent)) return null;
-  if (ADMIN_COMMANDS.has(value) || /^(levels?)\s+(config|reward|deletereward|setxp|setlevel|createreward)$/.test(context)) return "admin";
+  if (ADMIN_COMMANDS.has(value) || /^(levels?)\s+(config|reward|rewards|deletereward|setxp|setlevel|createreward)$/.test(context)) return "admin";
+  if (/^leaderboard$/.test(value) && !parent) return "economy";
   if (/level|xp|rank|leaderboard|reward/.test(context)) return "leveling";
   if (/economy|balance|daily|hourly|weekly|monthly|yearly|work|beg|deposit|withdraw|pay|shop|buy|hunt|battle|fish|pet|quest|boss|present|profile|rob|crime/.test(context)) return "economy";
   if (/play|music|song|queue|skip|pause|resume|stop|volume|shuffle|loop|lyrics|radio|bassboost|playing|seek|previous/.test(context)) return "music";
@@ -72,14 +57,13 @@ function categoryForName(name, parent = "") {
   if (/ban|kick|warn|timeout|unban|clearuser|lockdown|lock|unlock|softban|nuke|demote|automod|moderation/.test(context)) return "moderation";
   if (/game|games|trivia|rps|guess|word|8ball|fasttype|snake|wouldyou|press|fun|meme|joke|fact|rate|roast|hug|rickroll|ascii/.test(context)) return "fun";
   if (/auto|logging|logs|reaction|custom|reminder|starboard|giveaway|suggestion|message|sticky|announcement/.test(context)) return "automation";
-  if (/help|invite|avatar|userinfo|serverinfo|roleinfo|channelinfo|ping|uptime|botinfo|embed|say|translate|weather|afk|birthdays|notepad|images|search|tools|voice|profile|prefix|dcredits/.test(context)) return "utility";
+  if (/help|invite|avatar|userinfo|serverinfo|roleinfo|channelinfo|ping|uptime|botinfo|embed|say|translate|weather|afk|birthdays|notepad|images|search|tools|voice|prefix|dcredits/.test(context)) return "utility";
   return "other";
 }
 
 function normalizeCommandData(command) {
   const data = typeof command?.data?.toJSON === "function" ? command.data.toJSON() : command?.data;
-  if (!data?.name) return null;
-  return data;
+  return data?.name ? data : null;
 }
 
 function flattenSlashCommand(data) {
@@ -127,20 +111,12 @@ function loadedCommands(client) {
     const data = normalizeCommandData(command);
     if (!data) continue;
     for (const entry of flattenSlashCommand(data)) {
-      const key = entry.name;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seen.has(entry.name)) continue;
+      seen.add(entry.name);
       result.push(entry);
     }
   }
-
   return result;
-}
-
-function prefixOnlyCommands(client) {
-  // Economy/music are loaded as prefix-only adapters. Their command data is
-  // already present in client.commands, so the same source of truth is used.
-  return [];
 }
 
 function buildCommandLines(client, category, mode, prefix) {
@@ -148,25 +124,10 @@ function buildCommandLines(client, category, mode, prefix) {
     .filter((entry) => categoryForName(entry.name, entry.parent) === category)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const seen = new Set();
-  const lines = [];
-  for (const entry of entries) {
-    if (seen.has(entry.name)) continue;
-    seen.add(entry.name);
+  return entries.map((entry) => {
     const trigger = mode === "prefix" ? `${prefix}${entry.name}` : `/${entry.name}`;
-    lines.push(`\`${trigger}\` — ${entry.description}`);
-  }
-
-  // Keep the helper explicit so prefix-only adapters can be added later without
-  // changing the rendering code.
-  for (const entry of prefixOnlyCommands(client)) {
-    if (categoryForName(entry.name, entry.parent) !== category) continue;
-    if (seen.has(entry.name)) continue;
-    seen.add(entry.name);
-    lines.push(`\`${prefix}${entry.name}\` — ${entry.description}`);
-  }
-
-  return lines;
+    return `\`${trigger}\` — ${entry.description}`;
+  });
 }
 
 function buildEmbed(client, mode, category) {
@@ -185,9 +146,7 @@ function buildEmbed(client, mode, category) {
     if (next.length > 1000) {
       if (chunk) chunks.push(chunk);
       chunk = line;
-    } else {
-      chunk = next;
-    }
+    } else chunk = next;
   }
   if (chunk) chunks.push(chunk);
 
@@ -196,9 +155,7 @@ function buildEmbed(client, mode, category) {
     value,
     inline: false,
   }));
-  if (!fields.length) {
-    fields.push({ name: "Commands", value: "No commands are currently loaded in this category.", inline: false });
-  }
+  if (!fields.length) fields.push({ name: "Commands", value: "No commands are currently loaded in this category.", inline: false });
 
   return new Discord.EmbedBuilder()
     .setTitle(`❓・LightCore ${title}`)
