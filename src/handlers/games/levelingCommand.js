@@ -2,6 +2,7 @@ const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 const service = require("./levelingService");
 const levelingConfig = require("../../database/models/levelingConfig");
 const levelRewards = require("../../database/models/levelRewards");
+const Functions = require("../../database/models/functions");
 
 function isAdmin(interaction) {
   return interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) || interaction.member?.permissions?.has(PermissionFlagsBits.ManageGuild);
@@ -66,6 +67,15 @@ async function configure(interaction) {
   const config = await levelingConfig.findOneAndUpdate(
     { Guild: interaction.guild.id },
     { $set: updates },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).exec();
+
+  // The existing message event has a legacy Levels feature flag. Keep that
+  // flag synchronized with the dedicated leveling collection without storing
+  // any XP data in the legacy functions model.
+  await Functions.findOneAndUpdate(
+    { Guild: interaction.guild.id },
+    { $set: { Levels: true } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).exec();
 
