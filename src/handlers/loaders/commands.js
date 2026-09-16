@@ -43,6 +43,15 @@ function loadPrefixCommands(client) {
     const root = path.join(process.cwd(), "src", "commands");
     let loaded = 0;
 
+    function registerPrefix(key, handler, source) {
+        const normalized = key.toLowerCase();
+        if (client.prefixCommands.has(normalized)) {
+            console.warn(`Duplicate prefix command "${normalized}" from ${source}; keeping the first loaded handler.`);
+            return;
+        }
+        client.prefixCommands.set(normalized, handler);
+    }
+
     function walk(current, parts = []) {
         if (!fs.existsSync(current)) return;
         for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
@@ -53,8 +62,8 @@ function loadPrefixCommands(client) {
                 const handler = require(full);
                 if (typeof handler !== "function" && typeof handler?.execute !== "function") continue;
                 const fileName = entry.name.replace(/\.js$/, "").toLowerCase();
-                client.prefixCommands.set([...parts, fileName].join(" ").toLowerCase(), handler);
-                if (PREFIX_ONLY_DIRS.has(parts[0]?.toLowerCase())) client.prefixCommands.set(fileName, handler);
+                registerPrefix([...parts, fileName].join(" "), handler, full);
+                if (PREFIX_ONLY_DIRS.has(parts[0]?.toLowerCase())) registerPrefix(fileName, handler, full);
                 loaded++;
             } catch (error) { console.error(`Failed to load prefix feature ${full}:`, error); }
         }
@@ -65,7 +74,7 @@ function loadPrefixCommands(client) {
         for (const [command, names] of Object.entries(entries)) {
             const handler = client.prefixCommands.get(command);
             if (!handler) continue;
-            for (const alias of names) if (!client.prefixCommands.has(alias)) client.prefixCommands.set(alias, handler);
+            for (const alias of names) registerPrefix(alias, handler, `${category}:${command} alias`);
         }
     }
     return loaded;
@@ -73,12 +82,16 @@ function loadPrefixCommands(client) {
 
 function addPrefixAliases(client) {
     const aliases = new Map([["ticket", "tickets"], ["cmd", "commands"]]);
-    for (const [alias, target] of aliases) if (client.commands.has(target) && !client.commands.has(alias)) client.commands.set(alias, client.commands.get(target));
+    for (const [alias, target] of aliases) {
+        if (client.commands.has(alias)) continue;
+        if (client.commands.has(target)) client.commands.set(alias, client.commands.get(target));
+    }
 }
 
 module.exports = (client) => {
     const interactionLogs = new Discord.WebhookClient({ id: client.webhooks.interactionLogs.id, token: client.webhooks.interactionLogs.token });
     const commands = [];
+    const registeredNames = new Set();
     const prefixCount = loadPrefixCommands(client);
 
     if (client.shard.ids[0] === 0) {
@@ -91,9 +104,24 @@ module.exports = (client) => {
         if (client.shard.ids[0] === 0) console.log(chalk.blue(chalk.bold("LightCore")), chalk.white(">>"), chalk.red(`${commandFiles.length}`), chalk.green("commands of"), chalk.red(`${dirs}`), chalk.green("loaded"));
         for (const file of commandFiles) {
             if (["economy.js", "music.js"].includes(file.toLowerCase())) continue;
-            const command = require(`${process.cwd()}/src/interactions/${dirs}/${file}`);
-            client.commands.set(command.data.name, command);
-            commands.push(command.data);
+            const source = `${process.cwd()}/src/interactions/${dirs}/${file}`;
+            try {
+                const command = require(source);
+                const name = command?.data?.name;
+                if (!name || typeof command?.run !== "function") {
+                    console.warn(`Skipping invalid interaction command ${source}: missing data.name or run().`);
+                    continue;
+                }
+                if (registeredNames.has(name)) {
+                    console.error(`Duplicate slash command "${name}" from ${source}; keeping the first registered command.`);
+                    continue;
+                }
+                registeredNames.add(name);
+                client.commands.set(name, command);
+                commands.push(command.data);
+            } catch (error) {
+                console.error(`Failed to load interaction command ${source}:`, error);
+            }
         }
     });
 
@@ -119,9 +147,8 @@ module.exports = (client) => {
     (async () => {
         try {
             await interactionLogs.send({ username: "LightCore Logs", embeds: [new Discord.EmbedBuilder().setDescription("Started refreshing LightCore application commands.").setColor(client.config.colors.normal)] }).catch(() => {});
-            // Bulk overwrite intentionally excludes the economy/music slash aggregators above.
             await rest.put(Routes.applicationCommands(client.config.discord.id), { body: commands });
             await interactionLogs.send({ username: "LightCore Logs", embeds: [new Discord.EmbedBuilder().setDescription(`Successfully reloaded ${commands.length} application commands and ${prefixCount} prefix feature commands.`).setColor(client.config.colors.normal)] }).catch(() => {});
-        } catch (error) { console.log(error); }
+        } catch (error) { console.error("Failed to refresh LightCore application commands:", error); }
     })();
 };
