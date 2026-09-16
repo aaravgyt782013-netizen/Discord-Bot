@@ -6,6 +6,58 @@ const path = require("path");
 
 const PREFIX_ONLY_DIRS = new Set(["economy", "music"]);
 
+const PREFIX_ONLY_OPTIONS = {
+    economy: {
+        balance: [{ name: "user", type: 6 }],
+        leaderboard: [{ name: "type", type: 3 }],
+        additem: [{ name: "role", type: 8 }, { name: "amount", type: 10 }],
+        addmoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
+        removemoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
+        clear: [],
+        deleteitem: [{ name: "role", type: 8 }],
+        deposit: [{ name: "amount", type: 10 }],
+        withdraw: [{ name: "amount", type: 10 }],
+        pay: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
+        rob: [{ name: "user", type: 6 }],
+        profile: [],
+        daily: [],
+        hourly: [],
+        weekly: [],
+        monthly: [],
+        yearly: [],
+        beg: [],
+        work: [],
+        fish: [],
+        hunt: [],
+        crime: [],
+        store: [],
+        buy: [],
+        present: [],
+        pet: [],
+        quest: [],
+        boss: [],
+    },
+    music: {
+        bassboost: [{ name: "level", type: 3 }],
+        clear: [],
+        loop: [],
+        lyrics: [{ name: "song", type: 3 }],
+        pause: [],
+        play: [{ name: "song", type: 3 }],
+        playing: [],
+        previous: [],
+        queue: [],
+        remove: [{ name: "number", type: 10 }],
+        resume: [],
+        seek: [{ name: "time", type: 10 }],
+        shuffle: [],
+        skip: [],
+        skipto: [{ name: "number", type: 10 }],
+        stop: [],
+        volume: [{ name: "amount", type: 10 }],
+    },
+};
+
 function loadPrefixCommands(client) {
     client.prefixCommands = new Discord.Collection();
     const root = path.join(process.cwd(), "src", "commands");
@@ -123,6 +175,21 @@ module.exports = (client) => {
             commands.push(command.data);
         }
     });
+
+    // Economy and music are prefix-only. Their legacy handlers already contain
+    // the command logic, so expose a prefix-only adapter in the command collection
+    // without adding anything to the Discord application-command registration body.
+    for (const category of PREFIX_ONLY_DIRS) {
+        const definitions = PREFIX_ONLY_OPTIONS[category] || {};
+        for (const [name, options] of Object.entries(definitions)) {
+            const handler = client.prefixCommands.get(name);
+            if (!handler) continue;
+            client.commands.set(name, {
+                data: { name, options },
+                run: async (bot, interaction, args) => handler(bot, interaction, args),
+            });
+        }
+    }
 
     addPrefixAliases(client);
 
