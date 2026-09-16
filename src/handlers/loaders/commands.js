@@ -12,7 +12,7 @@ const PREFIX_ONLY_OPTIONS = {
         additem: [{ name: "role", type: 8 }, { name: "amount", type: 10 }],
         addmoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
         removemoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
-        setmoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }], clear: [],
+        setmoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }], ecoclear: [],
         deleteitem: [{ name: "role", type: 8 }], deposit: [{ name: "amount", type: 10 }],
         withdraw: [{ name: "amount", type: 10 }], pay: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
         rob: [{ name: "user", type: 6 }], profile: [], daily: [], hourly: [], weekly: [], monthly: [], yearly: [],
