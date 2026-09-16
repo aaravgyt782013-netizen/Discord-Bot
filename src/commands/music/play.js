@@ -327,8 +327,9 @@ module.exports = async (client, interaction, args) => {
     destroyIfEmpty();
 
     const message = String(error?.message || error || "Unknown music error");
-    const userMessage = /lavalink|node|connection|socket|voice|load failed|search/i.test(message)
-      ? `The music service is temporarily unavailable. Please try again in a moment.`
+    const serviceUnavailable = /lavalink|node|connection|socket|voice|load failed|search|timeout|timed out|econnrefused|etimedout/i.test(message);
+    const userMessage = serviceUnavailable
+      ? `Music is temporarily unavailable, check back soon.`
       : `I couldn't play that music right now. Please try again.`;
 
     return client.errNormal(
