@@ -10,6 +10,7 @@ const CATEGORY_ORDER = [
   "utility",
   "automation",
   "admin",
+  "gambling",
   "other",
 ];
 
@@ -23,6 +24,7 @@ const LABELS = {
   utility: ["Utility", "🔧"],
   automation: ["Automation", "🤖"],
   admin: ["Admin", "🛠️"],
+  gambling: ["Gambling", "🎰"],
   other: ["Other", "📦"],
 };
 
