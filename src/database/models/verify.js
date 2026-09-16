@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const Schema = new mongoose.Schema({
-  Guild: { type: String, required: true, unique: true, index: true },
+  Guild: { type: String, required: true, index: true },
   Channel: { type: String, default: null },
   Role: { type: String, default: null },
   Logs: { type: String, default: null },
