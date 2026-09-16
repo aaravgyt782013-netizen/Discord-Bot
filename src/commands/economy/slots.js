@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { getAccount, addCash } = require('../../utils/economyManager');
+const Schema = require('../../database/models/economy');
 
 const SYMBOLS = ['🍒', '🍋', '🍇', '🔔', '💎', '7️⃣'];
 // Multipliers for three-of-a-kind, keyed by symbol
@@ -9,6 +9,19 @@ function spin() {
     return [0, 0, 0].map(() => SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
 }
 
+async function getBalance(userId) {
+    const data = await Schema.findOne({ User: userId }).lean().exec();
+    return data?.Money ?? 0;
+}
+
+async function changeBalance(userId, amount) {
+    return Schema.findOneAndUpdate(
+        { User: userId },
+        { $inc: { Money: amount }, $setOnInsert: { Bank: 0 } },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).exec();
+}
+
 module.exports = {
     name: 'slots',
     description: 'Bet coins on the slot machine (virtual currency only)',
@@ -16,8 +29,8 @@ module.exports = {
         const amount = parseInt(args[0], 10);
         if (!amount || amount <= 0) return message.reply('Usage: `.slots <amount>`');
 
-        const acc = await getAccount(message.author.id, message.guild.id);
-        if (acc.cash < amount) return message.reply("You don't have enough cash for that bet.");
+        const balance = await getBalance(message.author.id);
+        if (balance < amount) return message.reply("You don't have enough cash for that bet.");
 
         const [a, b, c] = spin();
         let winnings = 0;
@@ -34,7 +47,7 @@ module.exports = {
             resultText = 'No match — better luck next time.';
         }
 
-        await addCash(message.author.id, message.guild.id, winnings);
+        await changeBalance(message.author.id, winnings);
 
         const embed = new EmbedBuilder()
             .setColor(winnings > 0 ? '#57F287' : '#ED4245')
