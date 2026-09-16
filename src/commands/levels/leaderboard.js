@@ -1,32 +1,14 @@
-const Discord = require("discord.js");
+const levelingService = require("../../handlers/games/levelingService");
 
-const Schema = require("../../database/models/levels");
-
-/**
- * @type {import("../../typings.d").Command}
- */
 module.exports = async (client, interaction, args) => {
-  const rawLeaderboard = await Schema.find({ guildID: interaction.guild.id })
-    .sort([["xp", "descending"]])
-    .exec();
+  const { records } = await levelingService.getLeaderboard(interaction.guild.id, 10);
+  if (!records.length) {
+    return client.errNormal({ error: "No data found!", type: "editreply" }, interaction);
+  }
 
-  if (!rawLeaderboard)
-    return client.errNormal(
-      {
-        error: `No data found!`,
-        type: "editreply",
-      },
-      interaction,
-    );
-
-  const lb = rawLeaderboard.map(
-    (e) =>
-      `**${rawLeaderboard.findIndex((i) => i.guildID === interaction.guild.id && i.userID === e.userID) + 1}** | <@!${e.userID}> - Level: \`${e.level.toLocaleString()}\` (${e.xp.toLocaleString()} xp)`,
+  const lb = records.map((record, index) =>
+    `**${index + 1}** | <@!${record.User}> - Level: \`${record.Level.toLocaleString()}\` (${record.XP.toLocaleString()} xp)`,
   );
 
-  await client.createLeaderboard(
-    `🆙・Levels - ${interaction.guild.name}`,
-    lb,
-    interaction,
-  );
+  await client.createLeaderboard(`🆙・Levels - ${interaction.guild.name}`, lb, interaction);
 };
