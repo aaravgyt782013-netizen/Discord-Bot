@@ -4,6 +4,8 @@ const chalk = require("chalk");
 const fs = require("fs");
 const path = require("path");
 
+const PREFIX_ONLY_DIRS = new Set(["economy", "music"]);
+
 function loadPrefixCommands(client) {
     client.prefixCommands = new Discord.Collection();
     const root = path.join(process.cwd(), "src", "commands");
@@ -21,9 +23,15 @@ function loadPrefixCommands(client) {
 
             try {
                 const handler = require(full);
-                if (typeof handler !== "function") continue;
-                const key = [...parts, entry.name.replace(/\.js$/, "")].join(" ").toLowerCase();
+                if (typeof handler !== "function" && typeof handler?.execute !== "function") continue;
+                const fileName = entry.name.replace(/\.js$/, "").toLowerCase();
+                const key = [...parts, fileName].join(" ").toLowerCase();
                 client.prefixCommands.set(key, handler);
+
+                const category = parts[0]?.toLowerCase();
+                if (PREFIX_ONLY_DIRS.has(category)) {
+                    client.prefixCommands.set(fileName, handler);
+                }
                 loaded++;
             } catch (error) {
                 console.error(`Failed to load prefix feature ${full}:`, error);
@@ -32,6 +40,46 @@ function loadPrefixCommands(client) {
     }
 
     walk(root);
+
+    const aliases = {
+        economy: {
+            balance: ["bal", "money"],
+            leaderboard: ["lb", "rich"],
+            profile: ["prof"],
+            daily: ["day"],
+            hourly: ["hour"],
+            weekly: ["week"],
+            monthly: ["month"],
+            yearly: ["year"],
+            withdraw: ["with"],
+            deposit: ["dep"],
+            addmoney: ["givemoney"],
+        },
+        music: {
+            playing: ["nowplaying", "np", "now"],
+            queue: ["q"],
+            pause: ["pa"],
+            resume: ["unpause"],
+            previous: ["prev"],
+            skip: ["next"],
+            skipto: ["st"],
+            volume: ["vol"],
+            bassboost: ["bb"],
+            lyrics: ["lyric"],
+            shuffle: ["shuff"],
+        },
+    };
+
+    for (const entries of Object.values(aliases)) {
+        for (const [command, names] of Object.entries(entries)) {
+            const handler = client.prefixCommands.get(command);
+            if (!handler) continue;
+            for (const alias of names) {
+                if (!client.prefixCommands.has(alias)) client.prefixCommands.set(alias, handler);
+            }
+        }
+    }
+
     return loaded;
 }
 
@@ -69,6 +117,7 @@ module.exports = (client) => {
         }
 
         for (const file of commandFiles) {
+            if (["economy.js", "music.js"].includes(file.toLowerCase())) continue;
             const command = require(`${process.cwd()}/src/interactions/${dirs}/${file}`);
             client.commands.set(command.data.name, command);
             commands.push(command.data);
