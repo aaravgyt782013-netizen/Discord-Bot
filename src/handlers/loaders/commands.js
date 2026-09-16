@@ -24,9 +24,6 @@ const PREFIX_ONLY_OPTIONS = {
         remove: [{ name: "number", type: 10 }], resume: [], seek: [{ name: "time", type: 10 }], shuffle: [],
         skip: [], skipto: [{ name: "number", type: 10 }], stop: [], volume: [{ name: "amount", type: 10 }],
     },
-    leveling: {
-        xpboost: [{ name: "target", type: 3 }, { name: "multiplier", type: 3 }],
-    },
 };
 
 const PREFIX_ONLY_ALIASES = {
@@ -134,6 +131,9 @@ module.exports = (client) => {
         for (const [name, options] of Object.entries(definitions)) {
             const handler = client.prefixCommands.get(name);
             if (!handler) continue;
+            // Do not replace a real slash command with a prefix adapter. This is important
+            // for commands that intentionally support both invocation styles.
+            if (client.commands.has(name)) continue;
             const adapter = {
                 data: { name, options },
                 prefixOnly: true,
