@@ -37,10 +37,10 @@ async function migrateLegacyLevels() {
   const db = mongoose.connection.db;
   if (!db) return { migrated: 0, skipped: 0, dropped: false };
 
-  const legacy = db.collection("levels");
   const exists = await db.listCollections({ name: "levels" }, { nameOnly: true }).hasNext();
   if (!exists) return { migrated: 0, skipped: 0, dropped: false };
 
+  const legacy = db.collection("levels");
   const docs = await legacy.find({}).toArray();
   if (!docs.length) {
     await legacy.drop().catch(() => {});
@@ -52,10 +52,11 @@ async function migrateLegacyLevels() {
     if (!doc.userID || !doc.guildID) continue;
     const xp = Math.max(0, Number(doc.xp) || 0);
     const level = Math.max(0, Number(doc.level) || 0);
-    const lastUpdated = doc.lastUpdated instanceof Date ? doc.lastUpdated : new Date(doc.lastUpdated || 0);
+    const rawDate = doc.lastUpdated ? new Date(doc.lastUpdated) : null;
+    const lastUpdated = rawDate && !Number.isNaN(rawDate.getTime()) ? rawDate : new Date(0);
 
     // Preserve existing new-system progress while importing any larger legacy
-    // XP/level values. This is deliberately idempotent and never decreases data.
+    // XP/level values. This never decreases data already in the new collection.
     await leveling.findOneAndUpdate(
       { Guild: String(doc.guildID), User: String(doc.userID) },
       {
@@ -63,10 +64,6 @@ async function migrateLegacyLevels() {
           Guild: String(doc.guildID),
           User: String(doc.userID),
           MessageCount: 0,
-        },
-        $max: {
-          XP: xp,
-          Level: level,
         },
         $max: {
           XP: xp,
@@ -79,10 +76,15 @@ async function migrateLegacyLevels() {
     migrated += 1;
   }
 
-  // Only retire the old collection after every readable legacy record has been
-  // processed. The new leveling collection is now the sole source of XP data.
-  await legacy.drop();
-  return { migrated, skipped: docs.length - migrated, dropped: true };
+  const skipped = docs.length - migrated;
+  if (skipped === 0) {
+    // Retire the old collection only after every legacy record was migrated.
+    await legacy.drop();
+    return { migrated, skipped, dropped: true };
+  }
+
+  console.error(`[Leveling] Migration skipped ${skipped} invalid legacy record(s); old collection was retained to prevent data loss.`);
+  return { migrated, skipped, dropped: false };
 }
 
 async function ensureLegacyMigration() {
