@@ -1,5 +1,31 @@
 const { Client, SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
 
+const CATEGORY_ORDER = [
+  "economy",
+  "leveling",
+  "music",
+  "moderation",
+  "tickets",
+  "fun",
+  "utility",
+  "automation",
+  "admin",
+  "other",
+];
+
+const LABELS = {
+  economy: ["Economy", "💰"],
+  leveling: ["Leveling", "🆙"],
+  music: ["Music", "🎵"],
+  moderation: ["Moderation", "🛡️"],
+  tickets: ["Tickets", "🎫"],
+  fun: ["Fun & Games", "🎮"],
+  utility: ["Utility", "🔧"],
+  automation: ["Automation", "🤖"],
+  admin: ["Admin", "🛠️"],
+  other: ["Other", "📦"],
+};
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("help")
@@ -18,24 +44,21 @@ module.exports = {
     const menu = new StringSelectMenuBuilder()
       .setCustomId(customId)
       .setPlaceholder(isPrefix ? "Choose a prefix help category" : "Choose a LightCore help category")
-      .addOptions([
-        { label: "Moderation", description: isPrefix ? "View moderation prefix commands" : "View moderation slash commands", emoji: "🛡️", value: "moderation" },
-        { label: "Tickets", description: isPrefix ? "View ticket prefix commands" : "View ticket slash commands", emoji: "🎫", value: "tickets" },
-        { label: "Setup", description: isPrefix ? "View setup prefix commands" : "View setup slash commands", emoji: "⚙️", value: "setup" },
-        { label: "Fun & Games", description: isPrefix ? "View fun and game prefix commands" : "View fun and game slash commands", emoji: "🎮", value: "fun" },
-        { label: "Music", description: isPrefix ? "View music prefix commands" : "View music slash commands", emoji: "🎵", value: "music" },
-        { label: "Economy", description: isPrefix ? "View economy prefix commands" : "View economy slash commands", emoji: "💰", value: "economy" },
-        { label: "Utility", description: isPrefix ? "View utility prefix commands" : "View utility slash commands", emoji: "🔧", value: "utility" },
-        { label: "Automation", description: isPrefix ? "View automation prefix commands" : "View automation slash commands", emoji: "🤖", value: "automation" },
-        { label: "Other", description: isPrefix ? "View other prefix commands" : "View other slash commands", emoji: "📦", value: "other" },
-      ]);
+      .addOptions(CATEGORY_ORDER.map((category) => ({
+        label: LABELS[category][0],
+        description: isPrefix
+          ? `View ${LABELS[category][0].toLowerCase()} prefix commands`
+          : `View ${LABELS[category][0].toLowerCase()} slash commands`,
+        emoji: LABELS[category][1],
+        value: category,
+      })));
 
     const syntax = isPrefix ? `Prefix: **${prefix}**` : "Slash commands: **/**";
-    const example = isPrefix ? `Example: **${prefix}ticket help**` : "Example: **/tickets help**";
+    const example = isPrefix ? `Example: **${prefix}help**` : "Example: **/help**";
 
     return client.embed({
       title: "❓・LightCore Help",
-      desc: `Welcome to **LightCore**!\n\n${syntax}\n${example}\n\nSelect a category below to see **all loaded commands** for this mode.`,
+      desc: `Welcome to **LightCore**!\n\n${syntax}\n${example}\n\nSelect a category below to see the **currently loaded commands** for this mode.`,
       fields: [
         { name: "🔗┆Invite", value: `[Invite LightCore](${client.config.discord.botInvite})`, inline: true },
         { name: "🛟┆Support", value: `[Support server](${client.config.discord.serverInvite})`, inline: true },
