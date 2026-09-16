@@ -28,7 +28,7 @@ const LABELS = {
 
 const ADMIN_COMMANDS = new Set([
   "addmoney", "removemoney", "setmoney", "clear", "additem", "deleteitem", "config", "reward", "rewards",
-  "createreward", "deletereward", "setxp", "setlevel", "xpboost",
+  "createreward", "deletereward", "setxp", "setlevel", "xpboost", "levelmessage",
 ]);
 
 function cleanName(name) {
