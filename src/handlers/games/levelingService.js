@@ -55,7 +55,6 @@ async function applyMilestoneRoles(guild, userId, newLevel) {
   const roleIds = rewards.map((reward) => reward.Role).filter(Boolean);
   if (!roleIds.length) return;
 
-  // Stacking is intentional: previously earned milestone roles remain on the member.
   await member.roles.add([...new Set(roleIds)], `Level milestone reward: level ${newLevel}`).catch(() => {});
 }
 
@@ -150,7 +149,7 @@ function clearCooldowns() {
 }
 setInterval(clearCooldowns, 60_000).unref?.();
 
-module.exports = {
+const service = {
   xpFor,
   levelFor,
   progressFor,
@@ -161,3 +160,12 @@ module.exports = {
   getRank,
   getLeaderboard,
 };
+
+// bot.js loads every file in src/handlers/<folder> as a client initializer.
+// Keep the service API available while also satisfying that handler contract.
+async function levelingServiceHandler(client) {
+  client.levelingService = service;
+}
+
+Object.assign(levelingServiceHandler, service);
+module.exports = levelingServiceHandler;
