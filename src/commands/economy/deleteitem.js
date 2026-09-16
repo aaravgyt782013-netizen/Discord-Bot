@@ -57,3 +57,5 @@ module.exports = async (client, interaction, args) => {
       }
     });
 };
+
+module.exports.description = "Manage a role in the global economy store.";
