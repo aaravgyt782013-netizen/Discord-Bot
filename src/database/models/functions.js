@@ -14,7 +14,7 @@ const Schema = new mongoose.Schema({
   SpamLimit: { type: Number, default: 5, min: 2, max: 20 },
   SpamWindow: { type: Number, default: 10000, min: 2000, max: 60000 },
   CapsPercentage: { type: Number, default: 70, min: 50, max: 100 },
-  MassMentionLimit: { type: Number, default: 5, min: 2, max: 20 },
+  MassMentionLimit: { type: Number, default: 20, min: 2, max: 20 },
 }, { timestamps: true });
 
 module.exports = mongoose.model("functions", Schema);
