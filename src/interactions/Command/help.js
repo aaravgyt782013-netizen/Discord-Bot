@@ -10,7 +10,6 @@ const CATEGORY_ORDER = [
   "utility",
   "automation",
   "admin",
-  "gambling",
   "other",
 ];
 
@@ -24,7 +23,6 @@ const LABELS = {
   utility: ["Utility", "🔧"],
   automation: ["Automation", "🤖"],
   admin: ["Admin", "🛠️"],
-  gambling: ["Gambling", "🎰"],
   other: ["Other", "📦"],
 };
 
@@ -48,9 +46,7 @@ module.exports = {
       .setPlaceholder(isPrefix ? "Choose a prefix help category" : "Choose a LightCore help category")
       .addOptions(CATEGORY_ORDER.map((category) => ({
         label: LABELS[category][0],
-        description: isPrefix
-          ? `View ${LABELS[category][0].toLowerCase()} prefix commands`
-          : `View ${LABELS[category][0].toLowerCase()} slash commands`,
+        description: isPrefix ? `View ${LABELS[category][0].toLowerCase()} prefix commands` : `View ${LABELS[category][0].toLowerCase()} slash commands`,
         emoji: LABELS[category][1],
         value: category,
       })));
