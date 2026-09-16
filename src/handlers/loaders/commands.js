@@ -11,7 +11,8 @@ const PREFIX_ONLY_OPTIONS = {
         balance: [{ name: "user", type: 6 }], leaderboard: [{ name: "type", type: 3 }],
         additem: [{ name: "role", type: 8 }, { name: "amount", type: 10 }],
         addmoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
-        removemoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }], clear: [],
+        removemoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
+        setmoney: [{ name: "user", type: 6 }, { name: "amount", type: 10 }], clear: [],
         deleteitem: [{ name: "role", type: 8 }], deposit: [{ name: "amount", type: 10 }],
         withdraw: [{ name: "amount", type: 10 }], pay: [{ name: "user", type: 6 }, { name: "amount", type: 10 }],
         rob: [{ name: "user", type: 6 }], profile: [], daily: [], hourly: [], weekly: [], monthly: [], yearly: [],
@@ -22,6 +23,9 @@ const PREFIX_ONLY_OPTIONS = {
         pause: [], play: [{ name: "song", type: 3 }], playing: [], previous: [], queue: [],
         remove: [{ name: "number", type: 10 }], resume: [], seek: [{ name: "time", type: 10 }], shuffle: [],
         skip: [], skipto: [{ name: "number", type: 10 }], stop: [], volume: [{ name: "amount", type: 10 }],
+    },
+    leveling: {
+        xpboost: [{ name: "target", type: 3 }, { name: "multiplier", type: 3 }],
     },
 };
 
@@ -130,7 +134,11 @@ module.exports = (client) => {
         for (const [name, options] of Object.entries(definitions)) {
             const handler = client.prefixCommands.get(name);
             if (!handler) continue;
-            const adapter = { data: { name, options }, run: async (bot, interaction, args) => handler(bot, interaction, args) };
+            const adapter = {
+                data: { name, options },
+                prefixOnly: true,
+                run: async (bot, interaction, args) => handler(bot, interaction, args),
+            };
             client.commands.set(name, adapter);
             prefixAdapters.set(name, adapter);
         }
