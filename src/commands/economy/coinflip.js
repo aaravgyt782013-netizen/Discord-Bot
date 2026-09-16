@@ -1,5 +1,18 @@
 const { EmbedBuilder } = require('discord.js');
-const { getAccount, addCash } = require('../../utils/economyManager');
+const Schema = require('../../database/models/economy');
+
+async function getBalance(userId) {
+    const data = await Schema.findOne({ User: userId }).lean().exec();
+    return data?.Money ?? 0;
+}
+
+async function changeBalance(userId, amount) {
+    return Schema.findOneAndUpdate(
+        { User: userId },
+        { $inc: { Money: amount }, $setOnInsert: { Bank: 0 } },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).exec();
+}
 
 module.exports = {
     name: 'coinflip',
@@ -12,13 +25,13 @@ module.exports = {
         if (!amount || amount <= 0) return message.reply('Usage: `.coinflip <amount> <heads/tails>`');
         if (!['heads', 'tails'].includes(choice)) return message.reply('Pick `heads` or `tails`.');
 
-        const acc = await getAccount(message.author.id, message.guild.id);
-        if (acc.cash < amount) return message.reply("You don't have enough cash for that bet.");
+        const balance = await getBalance(message.author.id);
+        if (balance < amount) return message.reply("You don't have enough cash for that bet.");
 
         const result = Math.random() < 0.5 ? 'heads' : 'tails';
         const won = result === choice;
 
-        await addCash(message.author.id, message.guild.id, won ? amount : -amount);
+        await changeBalance(message.author.id, won ? amount : -amount);
 
         const embed = new EmbedBuilder()
             .setColor(won ? '#57F287' : '#ED4245')
