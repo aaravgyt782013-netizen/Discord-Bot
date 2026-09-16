@@ -10,6 +10,7 @@ const CATEGORY_ORDER = [
   "utility",
   "automation",
   "admin",
+  "gambling",
   "other",
 ];
 
@@ -23,11 +24,17 @@ const LABELS = {
   utility: ["Utility", "🔧"],
   automation: ["Automation", "🤖"],
   admin: ["Admin", "🛠️"],
+  gambling: ["Gambling", "🎰"],
   other: ["Other", "📦"],
 };
 
-// Gambling/casino commands are intentionally not rendered in the help menu.
-const RESTRICTED_GAMBLING = new Set(["slots", "coinflip", "blackjack", "crash", "roulette"]);
+// Gambling entries are listed manually so the help system never needs to
+// inspect or modify their command implementations.
+const GAMBLING_COMMANDS = [
+  { name: "slots", description: "Bet coins on the slot machine" },
+  { name: "coinflip", description: "Bet coins on a coinflip" },
+  { name: "blackjack", description: "Play blackjack against the bot" },
+];
 
 const ADMIN_COMMANDS = new Set([
   "addmoney", "removemoney", "clear", "additem", "deleteitem", "config", "reward", "rewards",
@@ -38,18 +45,10 @@ function cleanName(name) {
   return String(name || "").toLowerCase().replace(/^[-_.]+/, "");
 }
 
-function isRestricted(name) {
-  const value = cleanName(name);
-  return RESTRICTED_GAMBLING.has(value) || value === "casino";
-}
-
 function categoryForName(name, parent = "") {
   const value = cleanName(name);
   const context = `${cleanName(parent)} ${value}`;
 
-  if (isRestricted(value) || isRestricted(parent)) return null;
-  if (ADMIN_COMMANDS.has(value) || /^(levels?)\s+(config|reward|rewards|deletereward|setxp|setlevel|createreward)$/.test(context)) return "admin";
-  if (/^leaderboard$/.test(value) && !parent) return "economy";
   if (/level|xp|rank|leaderboard|reward/.test(context)) return "leveling";
   if (/economy|balance|daily|hourly|weekly|monthly|yearly|work|beg|deposit|withdraw|pay|shop|buy|hunt|battle|fish|pet|quest|boss|present|profile|rob|crime/.test(context)) return "economy";
   if (/play|music|song|queue|skip|pause|resume|stop|volume|shuffle|loop|lyrics|radio|bassboost|playing|seek|previous/.test(context)) return "music";
@@ -58,6 +57,7 @@ function categoryForName(name, parent = "") {
   if (/game|games|trivia|rps|guess|word|8ball|fasttype|snake|wouldyou|press|fun|meme|joke|fact|rate|roast|hug|rickroll|ascii/.test(context)) return "fun";
   if (/auto|logging|logs|reaction|custom|reminder|starboard|giveaway|suggestion|message|sticky|announcement/.test(context)) return "automation";
   if (/help|invite|avatar|userinfo|serverinfo|roleinfo|channelinfo|ping|uptime|botinfo|embed|say|translate|weather|afk|birthdays|notepad|images|search|tools|voice|prefix|dcredits/.test(context)) return "utility";
+  if (ADMIN_COMMANDS.has(value)) return "admin";
   return "other";
 }
 
@@ -69,33 +69,28 @@ function normalizeCommandData(command) {
 function flattenSlashCommand(data) {
   const result = [];
   const root = cleanName(data.name);
-  if (isRestricted(root)) return result;
-
   const options = Array.isArray(data.options) ? data.options : [];
-  const subcommands = options.filter((option) => option.type === 1 || option.type === 2);
 
-  if (!subcommands.length) {
+  if (!options.some((option) => option.type === 1 || option.type === 2)) {
     result.push({ name: root, description: data.description || "No description declared in the command file.", parent: "" });
     return result;
   }
 
-  for (const sub of subcommands) {
+  for (const sub of options.filter((option) => option.type === 1 || option.type === 2)) {
     if (sub.type === 2 && Array.isArray(sub.options)) {
       const nested = sub.options.filter((option) => option.type === 1);
       if (nested.length) {
         for (const child of nested) {
-          if (!isRestricted(child.name)) {
-            result.push({
-              name: `${root} ${cleanName(sub.name)} ${cleanName(child.name)}`,
-              description: child.description || "No description declared in the command file.",
-              parent: root,
-            });
-          }
+          result.push({
+            name: `${root} ${cleanName(sub.name)} ${cleanName(child.name)}`,
+            description: child.description || "No description declared in the command file.",
+            parent: root,
+          });
         }
-      } else if (!isRestricted(sub.name)) {
+      } else {
         result.push({ name: `${root} ${cleanName(sub.name)}`, description: sub.description || "No description declared in the command file.", parent: root });
       }
-    } else if (!isRestricted(sub.name)) {
+    } else {
       result.push({ name: `${root} ${cleanName(sub.name)}`, description: sub.description || "No description declared in the command file.", parent: root });
     }
   }
@@ -124,10 +119,19 @@ function buildCommandLines(client, category, mode, prefix) {
     .filter((entry) => categoryForName(entry.name, entry.parent) === category)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return entries.map((entry) => {
+  const lines = entries.map((entry) => {
     const trigger = mode === "prefix" ? `${prefix}${entry.name}` : `/${entry.name}`;
     return `\`${trigger}\` — ${entry.description}`;
   });
+
+  if (category === "gambling") {
+    for (const entry of GAMBLING_COMMANDS) {
+      const trigger = mode === "prefix" ? `${prefix}${entry.name}` : `/${entry.name}`;
+      lines.push(`\`${trigger}\` — ${entry.description}`);
+    }
+  }
+
+  return lines;
 }
 
 function buildEmbed(client, mode, category) {
@@ -177,7 +181,7 @@ function buildMenu(mode, owner) {
           : `View ${LABELS[category][0].toLowerCase()} slash commands`,
         emoji: LABELS[category][1],
         value: category,
-      }))),
+      })));
   );
 }
 
