@@ -2,10 +2,8 @@ const Discord = require("discord.js");
 const chalk = require("chalk");
 
 module.exports = async (client) => {
-  const startLogs = new Discord.WebhookClient({
-    id: client.webhooks.startLogs.id,
-    token: client.webhooks.startLogs.token,
-  });
+  const startLogConfig = client.webhooks?.startLogs;
+  const hasStartWebhook = Boolean(startLogConfig?.id && startLogConfig?.token);
 
   console.log(`\u001b[0m`);
   console.log(
@@ -22,26 +20,35 @@ module.exports = async (client) => {
     chalk.green(`servers!`),
   );
 
-  const embed = new Discord.EmbedBuilder()
-    .setTitle(`🆙・Finishing shard`)
-    .setDescription(`A shard just finished`)
-    .addFields(
-      {
-        name: "🆔┆ID",
-        value: `${client.shard.ids[0] + 1}/${client.options.shardCount}`,
-        inline: true,
-      },
-      { name: "📃┆State", value: `Ready`, inline: true },
-    )
-    .setColor(client.config.colors.normal);
-
-  try {
-    await startLogs.send({
-      username: "Bot Logs",
-      embeds: [embed],
+  if (hasStartWebhook) {
+    const startLogs = new Discord.WebhookClient({
+      id: startLogConfig.id,
+      token: startLogConfig.token,
     });
-  } catch (error) {
-    console.error("Startup webhook failed:", error);
+
+    const embed = new Discord.EmbedBuilder()
+      .setTitle(`🆙・Finishing shard`)
+      .setDescription(`A shard just finished`)
+      .addFields(
+        {
+          name: "🆔┆ID",
+          value: `${client.shard.ids[0] + 1}/${client.options.shardCount}`,
+          inline: true,
+        },
+        { name: "📃┆State", value: `Ready`, inline: true },
+      )
+      .setColor(client.config.colors.normal);
+
+    try {
+      await startLogs.send({
+        username: "Bot Logs",
+        embeds: [embed],
+      });
+    } catch (error) {
+      console.error("Startup webhook failed:", error);
+    }
+  } else if (client.shard.ids[0] === 0) {
+    console.log(chalk.yellow("Startup logs webhook not configured; continuing without it."));
   }
 
   setInterval(async () => {
