@@ -89,7 +89,19 @@ fs.readdirSync("./src/handlers").forEach((dir) => {
     const handlerPath = `./handlers/${dir}`;
     const fullPath = `./src/handlers/${dir}`;
     if (!fs.statSync(fullPath).isDirectory()) return;
-    fs.readdirSync(fullPath).filter((handler) => handler.endsWith(".js")).forEach((handler) => require(`${handlerPath}/${handler}`)(client));
+    fs.readdirSync(fullPath).filter((handler) => handler.endsWith(".js")).forEach((handler) => {
+        const source = `${handlerPath}/${handler}`;
+        try {
+            const initializer = require(source);
+            if (typeof initializer !== "function") {
+                throw new TypeError(`Handler must export a function, got ${typeof initializer}`);
+            }
+            initializer(client);
+        } catch (error) {
+            console.error(`LightCore failed to initialize handler ${source}:`, error);
+            process.exitCode = 1;
+        }
+    });
 });
 
 client.once(Discord.Events.ClientReady, (readyClient) => {
@@ -117,12 +129,13 @@ process.on("unhandledRejection", (error) => {
     });
 });
 
-process.on("uncaughtException", (error) => {
+process.on("uncaughtException", async (error) => {
     console.error("Uncaught exception:", error);
-    safeLog(consoleLogs, {
+    await Promise.resolve(safeLog(consoleLogs, {
         username: "LightCore Logs",
         embeds: [new Discord.EmbedBuilder().setTitle("💥・Uncaught exception").setDescription(errorDescription(error)).setColor(client.config.colors.error).setTimestamp()],
-    });
+    }));
+    await shutdown("uncaughtException");
 });
 
 process.on("warning", (warn) => {
