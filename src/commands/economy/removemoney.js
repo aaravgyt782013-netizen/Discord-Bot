@@ -37,3 +37,5 @@ module.exports = async (client, interaction) => {
     type: "editreply",
   }, interaction);
 };
+
+module.exports.description = "Owner-only: removes money from a user's global wallet.";
