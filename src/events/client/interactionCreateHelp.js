@@ -1,72 +1,182 @@
 const Discord = require("discord.js");
 
 const CATEGORY_ORDER = [
+  "economy",
+  "leveling",
+  "music",
   "moderation",
   "tickets",
-  "setup",
   "fun",
-  "music",
-  "economy",
   "utility",
   "automation",
+  "admin",
   "other",
 ];
 
-function categoryForName(name) {
-  const value = String(name || "").toLowerCase();
-  if (/ticket|transcript/.test(value)) return "tickets";
-  if (/setup|config|prefix|autorole|welcome|reaction.?role|verify|captcha/.test(value)) return "setup";
-  if (/ban|kick|mute|warn|timeout|unban|unmute|purge|clear|lock|unlock|slowmode|mod|moderation|antinuke|automod/.test(value)) return "moderation";
-  if (/play|music|song|queue|skip|pause|resume|stop|volume|shuffle|loop|lyrics|radio|247|disconnect/.test(value)) return "music";
-  if (/economy|balance|daily|work|crime|rob|deposit|withdraw|pay|shop|buy|sell|coin|cash|bank/.test(value)) return "economy";
-  if (/game|games|trivia|tictactoe|hangman|rps|blackjack|slots|guess|word|8ball|meme|joke|fun|truth|dare|quiz/.test(value)) return "fun";
-  if (/auto|logging|logs|reaction|custom|command|reminder|starboard|level|xp|giveaway|poll|suggestion/.test(value)) return "automation";
-  if (/help|invite|avatar|userinfo|serverinfo|roleinfo|channelinfo|ping|uptime|botinfo|embed|say|translate|weather|fact|quote|afk/.test(value)) return "utility";
+const LABELS = {
+  economy: ["Economy", "💰"],
+  leveling: ["Leveling", "🆙"],
+  music: ["Music", "🎵"],
+  moderation: ["Moderation", "🛡️"],
+  tickets: ["Tickets", "🎫"],
+  fun: ["Fun & Games", "🎮"],
+  utility: ["Utility", "🔧"],
+  automation: ["Automation", "🤖"],
+  admin: ["Admin", "🛠️"],
+  other: ["Other", "📦"],
+};
+
+// These are intentionally not rendered by help. They are gambling/casino
+// commands and are kept out of the user-facing command directory.
+const RESTRICTED_GAMBLING = new Set([
+  "slots",
+  "coinflip",
+  "blackjack",
+  "crash",
+  "roulette",
+]);
+
+const ADMIN_COMMANDS = new Set([
+  "addmoney",
+  "removemoney",
+  "clear",
+  "additem",
+  "deleteitem",
+  "config",
+  "reward",
+  "createreward",
+  "deletereward",
+  "setxp",
+  "setlevel",
+]);
+
+function cleanName(name) {
+  return String(name || "").toLowerCase().replace(/^[-_.]+/, "");
+}
+
+function isRestricted(name) {
+  const value = cleanName(name);
+  return RESTRICTED_GAMBLING.has(value) || value === "casino";
+}
+
+function categoryForName(name, parent = "") {
+  const value = cleanName(name);
+  const context = `${cleanName(parent)} ${value}`;
+
+  if (isRestricted(value) || isRestricted(parent)) return null;
+  if (ADMIN_COMMANDS.has(value) || /^(levels?)\s+(config|reward|deletereward|setxp|setlevel|createreward)$/.test(context)) return "admin";
+  if (/level|xp|rank|leaderboard|reward/.test(context)) return "leveling";
+  if (/economy|balance|daily|hourly|weekly|monthly|yearly|work|beg|deposit|withdraw|pay|shop|buy|hunt|battle|fish|pet|quest|boss|present|profile|rob|crime/.test(context)) return "economy";
+  if (/play|music|song|queue|skip|pause|resume|stop|volume|shuffle|loop|lyrics|radio|bassboost|playing|seek|previous/.test(context)) return "music";
+  if (/ticket|transcript/.test(context)) return "tickets";
+  if (/ban|kick|warn|timeout|unban|clearuser|lockdown|lock|unlock|softban|nuke|demote|automod|moderation/.test(context)) return "moderation";
+  if (/game|games|trivia|rps|guess|word|8ball|fasttype|snake|wouldyou|press|fun|meme|joke|fact|rate|roast|hug|rickroll|ascii/.test(context)) return "fun";
+  if (/auto|logging|logs|reaction|custom|reminder|starboard|giveaway|suggestion|message|sticky|announcement/.test(context)) return "automation";
+  if (/help|invite|avatar|userinfo|serverinfo|roleinfo|channelinfo|ping|uptime|botinfo|embed|say|translate|weather|afk|birthdays|notepad|images|search|tools|voice|profile|prefix|dcredits/.test(context)) return "utility";
   return "other";
 }
 
-function slashCommandLines(client, category) {
-  return [...client.commands.values()]
-    .filter((command) => command?.data?.name)
-    .filter((command) => categoryForName(command.data.name) === category)
-    .sort((a, b) => a.data.name.localeCompare(b.data.name))
-    .flatMap((command) => {
-      const options = command.data.options || [];
-      const subs = options.filter((option) => option.type === 1 || option.type === 2);
-      if (!subs.length) return [`\`/${command.data.name}\` — ${command.data.description || "No description"}`];
-      const lines = [];
-      for (const sub of subs) {
-        if (sub.type === 2 && Array.isArray(sub.options)) {
-          const nested = sub.options.filter((option) => option.type === 1);
-          if (nested.length) {
-            for (const child of nested) lines.push(`\`/${command.data.name} ${sub.name} ${child.name}\` — ${child.description || "No description"}`);
-          } else {
-            lines.push(`\`/${command.data.name} ${sub.name}\` — ${sub.description || "No description"}`);
-          }
-        } else {
-          lines.push(`\`/${command.data.name} ${sub.name}\` — ${sub.description || "No description"}`);
-        }
-      }
-      return lines;
-    });
+function normalizeCommandData(command) {
+  const data = typeof command?.data?.toJSON === "function" ? command.data.toJSON() : command?.data;
+  if (!data?.name) return null;
+  return data;
 }
 
-function prefixCommandLines(client, category, prefix) {
-  return [...(client.prefixCommands?.keys() || [])]
-    .filter((name) => categoryForName(name) === category)
-    .sort((a, b) => a.localeCompare(b))
-    .map((name) => `\`${prefix}${name}\``);
+function flattenSlashCommand(data) {
+  const result = [];
+  const root = cleanName(data.name);
+  if (isRestricted(root)) return result;
+
+  const options = Array.isArray(data.options) ? data.options : [];
+  const subcommands = options.filter((option) => option.type === 1 || option.type === 2);
+
+  if (!subcommands.length) {
+    result.push({ name: root, description: data.description || "No description declared in the command file.", parent: "" });
+    return result;
+  }
+
+  for (const sub of subcommands) {
+    if (sub.type === 2 && Array.isArray(sub.options)) {
+      const nested = sub.options.filter((option) => option.type === 1);
+      if (nested.length) {
+        for (const child of nested) {
+          if (!isRestricted(child.name)) {
+            result.push({
+              name: `${root} ${cleanName(sub.name)} ${cleanName(child.name)}`,
+              description: child.description || "No description declared in the command file.",
+              parent: root,
+            });
+          }
+        }
+      } else if (!isRestricted(sub.name)) {
+        result.push({ name: `${root} ${cleanName(sub.name)}`, description: sub.description || "No description declared in the command file.", parent: root });
+      }
+    } else if (!isRestricted(sub.name)) {
+      result.push({ name: `${root} ${cleanName(sub.name)}`, description: sub.description || "No description declared in the command file.", parent: root });
+    }
+  }
+
+  return result;
+}
+
+function loadedCommands(client) {
+  const seen = new Set();
+  const result = [];
+
+  for (const command of client.commands?.values?.() || []) {
+    const data = normalizeCommandData(command);
+    if (!data) continue;
+    for (const entry of flattenSlashCommand(data)) {
+      const key = entry.name;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(entry);
+    }
+  }
+
+  return result;
+}
+
+function prefixOnlyCommands(client) {
+  // Economy/music are loaded as prefix-only adapters. Their command data is
+  // already present in client.commands, so the same source of truth is used.
+  return [];
+}
+
+function buildCommandLines(client, category, mode, prefix) {
+  const entries = loadedCommands(client)
+    .filter((entry) => categoryForName(entry.name, entry.parent) === category)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const seen = new Set();
+  const lines = [];
+  for (const entry of entries) {
+    if (seen.has(entry.name)) continue;
+    seen.add(entry.name);
+    const trigger = mode === "prefix" ? `${prefix}${entry.name}` : `/${entry.name}`;
+    lines.push(`\`${trigger}\` — ${entry.description}`);
+  }
+
+  // Keep the helper explicit so prefix-only adapters can be added later without
+  // changing the rendering code.
+  for (const entry of prefixOnlyCommands(client)) {
+    if (categoryForName(entry.name, entry.parent) !== category) continue;
+    if (seen.has(entry.name)) continue;
+    seen.add(entry.name);
+    lines.push(`\`${prefix}${entry.name}\` — ${entry.description}`);
+  }
+
+  return lines;
 }
 
 function buildEmbed(client, mode, category) {
   const prefix = client.config.discord.prefix || ".";
-  const isPrefix = mode === "prefix";
-  const lines = isPrefix ? prefixCommandLines(client, category, prefix) : slashCommandLines(client, category);
-  const title = category === "fun" ? "Fun & Games" : category.charAt(0).toUpperCase() + category.slice(1);
-  const syntax = isPrefix ? `**Prefix:** ${prefix}` : "**Slash:** /";
-  const description = isPrefix
-    ? `Every command below is a **prefix command**. Use **${prefix}** before the command.`
-    : "Every command below is a **slash command**. Use **/** before the command.";
+  const lines = buildCommandLines(client, category, mode, prefix);
+  const title = LABELS[category][0];
+  const syntax = mode === "prefix" ? `**Prefix:** ${prefix}` : "**Slash:** /";
+  const description = mode === "prefix"
+    ? "Every command below is currently loaded for prefix use."
+    : "Every command below is currently registered for slash use.";
 
   const chunks = [];
   let chunk = "";
@@ -75,16 +185,20 @@ function buildEmbed(client, mode, category) {
     if (next.length > 1000) {
       if (chunk) chunks.push(chunk);
       chunk = line;
-    } else chunk = next;
+    } else {
+      chunk = next;
+    }
   }
   if (chunk) chunks.push(chunk);
 
-  const fields = chunks.slice(0, 10).map((value, index) => ({
+  const fields = chunks.slice(0, 24).map((value, index) => ({
     name: chunks.length > 1 ? `Commands ${index + 1}` : "Commands",
     value,
     inline: false,
   }));
-  if (!fields.length) fields.push({ name: "Commands", value: "No commands are currently loaded in this category.", inline: false });
+  if (!fields.length) {
+    fields.push({ name: "Commands", value: "No commands are currently loaded in this category.", inline: false });
+  }
 
   return new Discord.EmbedBuilder()
     .setTitle(`❓・LightCore ${title}`)
@@ -95,19 +209,16 @@ function buildEmbed(client, mode, category) {
 }
 
 function buildMenu(mode, owner) {
-  const labels = {
-    moderation: ["Moderation", "🛡️"], tickets: ["Tickets", "🎫"], setup: ["Setup", "⚙️"],
-    fun: ["Fun & Games", "🎮"], music: ["Music", "🎵"], economy: ["Economy", "💰"],
-    utility: ["Utility", "🔧"], automation: ["Automation", "🤖"], other: ["Other", "📦"],
-  };
   return new Discord.ActionRowBuilder().addComponents(
     new Discord.StringSelectMenuBuilder()
       .setCustomId(mode === "prefix" ? `lc_phelp:${owner}` : `lc_help:${mode}:${owner}`)
       .setPlaceholder(mode === "prefix" ? "Choose a prefix help category" : "Choose a LightCore help category")
       .addOptions(CATEGORY_ORDER.map((category) => ({
-        label: labels[category][0],
-        description: mode === "prefix" ? `View ${labels[category][0].toLowerCase()} prefix commands` : `View ${labels[category][0].toLowerCase()} slash commands`,
-        emoji: labels[category][1],
+        label: LABELS[category][0],
+        description: mode === "prefix"
+          ? `View ${LABELS[category][0].toLowerCase()} prefix commands`
+          : `View ${LABELS[category][0].toLowerCase()} slash commands`,
+        emoji: LABELS[category][1],
         value: category,
       }))),
   );
