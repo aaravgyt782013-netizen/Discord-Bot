@@ -17,7 +17,7 @@ module.exports = async (client, interaction, args) => {
       interaction,
     );
 
-  Schema.findOne({ Guild: interaction.guild.id, User: user.id }).then(
+  Schema.findOne({ User: user.id }).then(
     async (data) => {
       if (data) {
         let total = data.Money + data.Bank;
